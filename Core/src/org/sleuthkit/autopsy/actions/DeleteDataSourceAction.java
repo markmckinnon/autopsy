@@ -20,16 +20,22 @@ package org.sleuthkit.autopsy.actions;
 
 import java.awt.event.ActionEvent;
 import java.text.MessageFormat;
+import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import javax.swing.AbstractAction;
+import javax.swing.JOptionPane;
+import javax.swing.SwingWorker;
+import org.openide.DialogDescriptor;
+import org.openide.DialogDisplayer;
+import org.openide.NotifyDescriptor;
 import org.openide.util.Lookup;
 import org.openide.util.NbBundle;
 import org.sleuthkit.autopsy.casemodule.Case;
-import org.sleuthkit.autopsy.casemodule.NoCurrentCaseException;
+import org.sleuthkit.autopsy.casemodule.CaseActionException;
 import org.sleuthkit.autopsy.coreutils.Logger;
 import org.sleuthkit.autopsy.keywordsearchservice.KeywordSearchService;
 import org.sleuthkit.autopsy.keywordsearchservice.KeywordSearchServiceException;
-import org.sleuthkit.datamodel.TskCoreException;
+
 
 public final class DeleteDataSourceAction extends AbstractAction {
     private static final Logger logger = Logger.getLogger(DeleteDataSourceAction.class.getName());
@@ -38,29 +44,51 @@ public final class DeleteDataSourceAction extends AbstractAction {
     @NbBundle.Messages({"DeleteDataSourceAction.name.text=Delete Data Source"})
     public DeleteDataSourceAction(Long selectedDataSource) {
         super(Bundle.DeleteDataSourceAction_name_text());
-        this.selectedDataSource = selectedDataSource;
+        selectDataSource = selectedDataSource;
+        
 
     }
-    @NbBundle.Messages({"ErrorDeletingDataSource.name.text=Error Deleting Data Source"})
+    @NbBundle.Messages({"ErrorDeletingDataSource.name.text=Error Deleting Data Source",
+                        "DeleteDataSourceConfirmationDialog_message=Are you sure you want to delete the data source?",
+                        "DeleteDataSourceConfirmationDialog_title=Delete Data Source?"})
     @Override
     public void actionPerformed(ActionEvent event) {
-        try {
-            //VersionNumber checkVersionNumber = Case.getCurrentCaseThrows().getSleuthkitCase().getDBSchemaVersion();
-            Case.getCurrentCaseThrows().getSleuthkitCase().deleteDataSource(selectedDataSource);
-            deleteDataSource(selectedDataSource);
-            Case.getCurrentCaseThrows().notifyDataSourceDeleted(selectedDataSource);
-        } catch (NoCurrentCaseException | TskCoreException | KeywordSearchServiceException e) {
-	    String msg = MessageFormat.format(Bundle.ErrorDeletingDataSource_name_text(), selectedDataSource);
-            logger.log(Level.WARNING, msg, e);
-            //throw new TskCoreException(msg, e);
+        Object response = DialogDisplayer.getDefault().notify(new NotifyDescriptor(
+                Bundle.DeleteDataSourceConfirmationDialog_message(),
+                Bundle.DeleteDataSourceConfirmationDialog_title(),
+                NotifyDescriptor.YES_NO_OPTION,
+                NotifyDescriptor.WARNING_MESSAGE,
+                null,
+                NotifyDescriptor.NO_OPTION));
+        if (null != response && DialogDescriptor.YES_OPTION == response) {
+
+            new SwingWorker<Void, Void>() {
+
+                @Override
+                protected Void doInBackground() throws Exception {
+                    try {
+                        Case.deleteDataSourceFromCurrentCase(selectDataSource);
+                        deleteDataSource(selectDataSource);
+                    } catch (CaseActionException | KeywordSearchServiceException ex) {
+                        String msg = MessageFormat.format(Bundle.ErrorDeletingDataSource_name_text(), selectDataSource);
+                        logger.log(Level.WARNING, msg, ex);
+                    }
+                    return null;
+                }
+
+                @Override
+                protected void done() {
+                }
+            }.execute();        
         }
-    }
+    } 
+    
     private static void deleteDataSource(Long dataSourceId) throws KeywordSearchServiceException {
         try {
             KeywordSearchService kwsService = Lookup.getDefault().lookup(KeywordSearchService.class);
             kwsService.deleteDataSource(dataSourceId);
-        } catch (KeywordSearchServiceException e) {
-            logger.log(Level.WARNING, "KWS Error", e);
+        } catch (KeywordSearchServiceException ex) {
+            logger.log(Level.WARNING, "KWS Error", ex);
         }
         
     }
