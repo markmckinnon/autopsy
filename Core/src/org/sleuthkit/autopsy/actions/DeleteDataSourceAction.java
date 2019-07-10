@@ -44,7 +44,7 @@ public final class DeleteDataSourceAction extends AbstractAction {
     @NbBundle.Messages({"DeleteDataSourceAction.name.text=Delete Data Source"})
     public DeleteDataSourceAction(Long selectedDataSource) {
         super(Bundle.DeleteDataSourceAction_name_text());
-        selectDataSource = selectedDataSource;
+        this.selectedDataSource = selectedDataSource;
         
 
     }
@@ -67,10 +67,10 @@ public final class DeleteDataSourceAction extends AbstractAction {
                 @Override
                 protected Void doInBackground() throws Exception {
                     try {
-                        Case.deleteDataSourceFromCurrentCase(selectDataSource);
-                        deleteDataSource(selectDataSource);
+                        Case.deleteDataSourceFromCurrentCase(selectedDataSource);
+                        deleteDataSource(selectedDataSource);
                     } catch (CaseActionException | KeywordSearchServiceException ex) {
-                        String msg = MessageFormat.format(Bundle.ErrorDeletingDataSource_name_text(), selectDataSource);
+                        String msg = MessageFormat.format(Bundle.ErrorDeletingDataSource_name_text(), selectedDataSource);
                         logger.log(Level.WARNING, msg, ex);
                     }
                     return null;
