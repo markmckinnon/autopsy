@@ -33,6 +33,7 @@ import org.openide.util.NbBundle;
 import org.sleuthkit.autopsy.casemodule.Case;
 import org.sleuthkit.autopsy.casemodule.CaseActionException;
 import org.sleuthkit.autopsy.coreutils.Logger;
+import org.sleuthkit.autopsy.coreutils.MessageNotifyUtil;
 import org.sleuthkit.autopsy.keywordsearchservice.KeywordSearchService;
 import org.sleuthkit.autopsy.keywordsearchservice.KeywordSearchServiceException;
 
@@ -48,7 +49,7 @@ public final class DeleteDataSourceAction extends AbstractAction {
         
 
     }
-    @NbBundle.Messages({"ErrorDeletingDataSource.name.text=Error Deleting Data Source",
+    @NbBundle.Messages({"ErrorDeletingDataSource.name.text=Error Deleting Data Source. See log for details.",
                         "DeleteDataSourceConfirmationDialog_message=Are you sure you want to delete the data source?",
                         "DeleteDataSourceConfirmationDialog_title=Delete Data Source?"})
     @Override
@@ -70,8 +71,8 @@ public final class DeleteDataSourceAction extends AbstractAction {
                         Case.deleteDataSourceFromCurrentCase(selectedDataSource);
                         deleteDataSource(selectedDataSource);
                     } catch (CaseActionException | KeywordSearchServiceException ex) {
-                        String msg = MessageFormat.format(Bundle.ErrorDeletingDataSource_name_text(), selectedDataSource);
-                        logger.log(Level.WARNING, msg, ex);
+                        logger.log(Level.WARNING, Bundle.ErrorDeletingDataSource_name_text(), ex);
+                        MessageNotifyUtil.Message.info(Bundle.ErrorDeletingDataSource_name_text()); 
                     }
                     return null;
                 }

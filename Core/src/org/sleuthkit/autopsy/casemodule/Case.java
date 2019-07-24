@@ -708,6 +708,7 @@ public class Case {
      * Deletes the selected data source.
      *
      * @param dataSourceId id of the data source to delete.
+     *
      * @throws CaseActionException If there is a problem deleting the case. The
      *                             exception will have a user-friendly message
      *                             and may be a wrapper for a lower-level
@@ -717,8 +718,7 @@ public class Case {
         "Case.progressIndicatorTitle_deletingDataSource=Deleting Data Source from the case.",
         "Case.progressIndicatorStatus_closingCase=Closing Case to Deleting Data Source.",
         "Case.progressIndicatorStatus_openingCase=Opening Case to Deleting Data Source.",
-        "Case.progressIndicatorStatus_deletingDataSource=Deleting Data Source.",        
-    })
+        "Case.progressIndicatorStatus_deletingDataSource=Deleting Data Source.",})
     public static void deleteDataSourceFromCurrentCase(Long dataSourceId) throws CaseActionException {
         synchronized (caseActionSerializationLock) {
             if (null == currentCase) {
@@ -731,6 +731,24 @@ public class Case {
                 newMetadata = new CaseMetadata(Paths.get(caseDir));
             } catch (CaseMetadataException ex) {
                 logger.log(Level.WARNING, String.format("Error Getting Case Dir %s", caseDir), ex);
+            }
+            if (CaseType.MULTI_USER_CASE == metadata.getCaseType()) {
+                CoordinationService coordinationService;
+                try {
+                    coordinationService = CoordinationService.getInstance();
+                } catch (CoordinationServiceException ex) {
+                    logger.log(Level.SEVERE, String.format("Failed to connect to coordination service when attempting to delete datasource with id %s", dataSourceId), ex); //NON-NLS
+                    throw new CaseActionException(Bundle.Case_exceptionMessage_failedToConnectToCoordSvc(ex.getLocalizedMessage()));
+                }
+                try (CoordinationService.Lock dirLock = coordinationService.tryGetExclusiveLock(CategoryNode.CASES, metadata.getCaseDirectory())) {
+                    if (dirLock == null) {
+                        logger.log(Level.INFO, String.format("Could not delete datasource id (%s) because a case directory lock was held by another host", dataSourceId)); //NON-NLS
+                        throw new CaseActionException(Bundle.Case_exceptionMessage_cannotGetLockToDeleteCase());
+                    }
+                } catch (CoordinationServiceException ex) {
+                    logger.log(Level.INFO, String.format("Could not delete datasource id (%s) because a case directory lock was held by another host", dataSourceId)); //NON-NLS
+                    throw new CaseActionException(Bundle.Case_exceptionMessage_cannotGetLockToDeleteCase());
+                }
             }
             ProgressIndicator progressIndicator;
             if (RuntimeProperties.runningWithGUI()) {
@@ -749,39 +767,33 @@ public class Case {
 
     /**
      * Delete a data source from the current case.
-     * 
-     * @param dataSourceId id of the data source to delete.
-     * @param progressIndicator 
+     *
+     * @param dataSourceId      id of the data source to delete.
+     * @param progressIndicator
      */
     @Messages({
         "Case.DeletingDataSourceFromCase=Deleting the Data Source from the case.",
         "Case.ErrorDeletingDataSource.name.text=Error Deleting Data Source"
     })
-    private static void deleteDataSource(Long dataSourceId, ProgressIndicator progressIndicator, CaseMetadata metadata) {
-            progressIndicator.progress(Bundle.Case_DeletingDataSourceFromCase());
-            SleuthkitCaseAdmin skCaseAdmin = null;
-            try {
-                if (CaseType.SINGLE_USER_CASE == metadata.getCaseType()) {
-                    String caseDbPath = metadata.getCaseDirectory() + File.separator + metadata.getCaseDatabaseName();
-                    skCaseAdmin = new SleuthkitCaseAdmin(caseDbPath);
-                } else {
-                    try (CoordinationService.Lock resourcesLock = acquireExclusiveCaseResourcesLock(metadata.getCaseDirectory())) {
-                        if (null == resourcesLock) {
-                            throw new CaseActionException(Bundle.Case_creationException_couldNotAcquireResourcesLock());
-                        }
-                        CaseDbConnectionInfo caseDbConnectionInfo = UserPreferences.getDatabaseConnectionInfo();
-                        skCaseAdmin = new SleuthkitCaseAdmin(metadata.getCaseDatabaseName(), caseDbConnectionInfo, metadata.getCaseDirectory());  
-                    } catch (CaseActionException | CoordinationServiceException ex) {
-                        logger.log(Level.WARNING, String.format("Error acquiring MultiCase Lock"), ex);
-                    }
-                }
-                if (skCaseAdmin != null) {
-                    skCaseAdmin.deleteDataSource(dataSourceId);
-                    eventPublisher.publish(new DataSourceDeletedEvent(dataSourceId));    
-                }
-            } catch (TskCoreException | UserPreferencesException ex) {
-                logger.log(Level.WARNING, String.format("Error Deleting Data Source %s", dataSourceId), ex);                
+    private static void deleteDataSource(Long dataSourceId, ProgressIndicator progressIndicator,
+            CaseMetadata metadata) throws CaseActionException {
+        progressIndicator.progress(Bundle.Case_DeletingDataSourceFromCase());
+        SleuthkitCaseAdmin skCaseAdmin = null;
+        try {
+            if (CaseType.SINGLE_USER_CASE == metadata.getCaseType()) {
+                String caseDbPath = metadata.getCaseDirectory() + File.separator + metadata.getCaseDatabaseName();
+                skCaseAdmin = new SleuthkitCaseAdmin(caseDbPath);
+            } else {
+                CaseDbConnectionInfo caseDbConnectionInfo = UserPreferences.getDatabaseConnectionInfo();
+                skCaseAdmin = new SleuthkitCaseAdmin(metadata.getCaseDatabaseName(), caseDbConnectionInfo, metadata.getCaseDirectory());
             }
+            if (skCaseAdmin != null) {
+                skCaseAdmin.deleteDataSource(dataSourceId);
+                eventPublisher.publish(new DataSourceDeletedEvent(dataSourceId));
+            }
+        } catch (TskCoreException | UserPreferencesException ex) {
+            logger.log(Level.WARNING, String.format("Error Deleting Data Source %s", dataSourceId), ex);
+        }
     }
 
     /**
@@ -933,11 +945,16 @@ public class Case {
          * already exist.
          */
         File caseDir = new File(caseDirPath);
+
         if (caseDir.exists()) {
             if (caseDir.isFile()) {
-                throw new CaseActionException(NbBundle.getMessage(Case.class, "Case.createCaseDir.exception.existNotDir", caseDirPath));
+                throw new CaseActionException(NbBundle.getMessage(Case.class,
+                         "Case.createCaseDir.exception.existNotDir", caseDirPath));
+
             } else if (!caseDir.canRead() || !caseDir.canWrite()) {
-                throw new CaseActionException(NbBundle.getMessage(Case.class, "Case.createCaseDir.exception.existCantRW", caseDirPath));
+                throw new CaseActionException(NbBundle.getMessage(Case.class,
+                         "Case.createCaseDir.exception.existCantRW", caseDirPath));
+
             }
         }
 
@@ -945,7 +962,8 @@ public class Case {
          * Create the case directory, if it does not already exist.
          */
         if (!caseDir.mkdirs()) {
-            throw new CaseActionException(NbBundle.getMessage(Case.class, "Case.createCaseDir.exception.cantCreate", caseDirPath));
+            throw new CaseActionException(NbBundle.getMessage(Case.class,
+                     "Case.createCaseDir.exception.cantCreate", caseDirPath));
         }
 
         /*
@@ -959,33 +977,45 @@ public class Case {
         }
 
         Path exportDir = Paths.get(caseDirPath, hostPathComponent, EXPORT_FOLDER);
+
         if (!exportDir.toFile().mkdirs()) {
-            throw new CaseActionException(NbBundle.getMessage(Case.class, "Case.createCaseDir.exception.cantCreateCaseDir", exportDir));
+            throw new CaseActionException(NbBundle.getMessage(Case.class,
+                     "Case.createCaseDir.exception.cantCreateCaseDir", exportDir));
         }
 
         Path logsDir = Paths.get(caseDirPath, hostPathComponent, LOG_FOLDER);
+
         if (!logsDir.toFile().mkdirs()) {
-            throw new CaseActionException(NbBundle.getMessage(Case.class, "Case.createCaseDir.exception.cantCreateCaseDir", logsDir));
+            throw new CaseActionException(NbBundle.getMessage(Case.class,
+                     "Case.createCaseDir.exception.cantCreateCaseDir", logsDir));
         }
 
         Path tempDir = Paths.get(caseDirPath, hostPathComponent, TEMP_FOLDER);
+
         if (!tempDir.toFile().mkdirs()) {
-            throw new CaseActionException(NbBundle.getMessage(Case.class, "Case.createCaseDir.exception.cantCreateCaseDir", tempDir));
+            throw new CaseActionException(NbBundle.getMessage(Case.class,
+                     "Case.createCaseDir.exception.cantCreateCaseDir", tempDir));
         }
 
         Path cacheDir = Paths.get(caseDirPath, hostPathComponent, CACHE_FOLDER);
+
         if (!cacheDir.toFile().mkdirs()) {
-            throw new CaseActionException(NbBundle.getMessage(Case.class, "Case.createCaseDir.exception.cantCreateCaseDir", cacheDir));
+            throw new CaseActionException(NbBundle.getMessage(Case.class,
+                     "Case.createCaseDir.exception.cantCreateCaseDir", cacheDir));
         }
 
         Path moduleOutputDir = Paths.get(caseDirPath, hostPathComponent, MODULE_FOLDER);
+
         if (!moduleOutputDir.toFile().mkdirs()) {
-            throw new CaseActionException(NbBundle.getMessage(Case.class, "Case.createCaseDir.exception.cantCreateModDir", moduleOutputDir));
+            throw new CaseActionException(NbBundle.getMessage(Case.class,
+                     "Case.createCaseDir.exception.cantCreateModDir", moduleOutputDir));
         }
 
         Path reportsDir = Paths.get(caseDirPath, hostPathComponent, REPORTS_FOLDER);
+
         if (!reportsDir.toFile().mkdirs()) {
-            throw new CaseActionException(NbBundle.getMessage(Case.class, "Case.createCaseDir.exception.cantCreateReportsDir", reportsDir));
+            throw new CaseActionException(NbBundle.getMessage(Case.class,
+                     "Case.createCaseDir.exception.cantCreateReportsDir", reportsDir));
         }
     }
 
@@ -1059,11 +1089,14 @@ public class Case {
                  */
                 SleuthkitCase caseDb = newCurrentCase.getSleuthkitCase();
                 String backupDbPath = caseDb.getBackupDatabasePath();
+
                 if (null != backupDbPath) {
                     JOptionPane.showMessageDialog(
                             mainFrame,
-                            NbBundle.getMessage(Case.class, "Case.open.msgDlg.updated.msg", backupDbPath),
-                            NbBundle.getMessage(Case.class, "Case.open.msgDlg.updated.title"),
+                            NbBundle.getMessage(Case.class,
+                                     "Case.open.msgDlg.updated.msg", backupDbPath),
+                            NbBundle.getMessage(Case.class,
+                                     "Case.open.msgDlg.updated.title"),
                             JOptionPane.INFORMATION_MESSAGE);
                 }
 
@@ -1077,11 +1110,14 @@ public class Case {
                     long obj_id = entry.getKey();
                     String path = entry.getValue();
                     boolean fileExists = (new File(path).isFile() || DriveUtils.driveExists(path));
+
                     if (!fileExists) {
                         int response = JOptionPane.showConfirmDialog(
                                 mainFrame,
-                                NbBundle.getMessage(Case.class, "Case.checkImgExist.confDlg.doesntExist.msg", path),
-                                NbBundle.getMessage(Case.class, "Case.checkImgExist.confDlg.doesntExist.title"),
+                                NbBundle.getMessage(Case.class,
+                                         "Case.checkImgExist.confDlg.doesntExist.msg", path),
+                                NbBundle.getMessage(Case.class,
+                                         "Case.checkImgExist.confDlg.doesntExist.title"),
                                 JOptionPane.YES_NO_OPTION);
                         if (response == JOptionPane.YES_OPTION) {
                             MissingImageDialog.makeDialog(obj_id, caseDb);
@@ -1095,15 +1131,32 @@ public class Case {
                 /*
                  * Enable the case-specific actions.
                  */
-                CallableSystemAction.get(AddImageAction.class).setEnabled(true);
-                CallableSystemAction.get(CaseCloseAction.class).setEnabled(true);
-                CallableSystemAction.get(CaseDetailsAction.class).setEnabled(true);
-                CallableSystemAction.get(DataSourceSummaryAction.class).setEnabled(true);
-                CallableSystemAction.get(CaseDeleteAction.class).setEnabled(true);
-                CallableSystemAction.get(OpenTimelineAction.class).setEnabled(true);
-                CallableSystemAction.get(OpenCommVisualizationToolAction.class).setEnabled(true);
-                CallableSystemAction.get(CommonAttributeSearchAction.class).setEnabled(true);
-                CallableSystemAction.get(OpenOutputFolderAction.class).setEnabled(false);
+                CallableSystemAction.get(AddImageAction.class
+                ).setEnabled(true);
+                CallableSystemAction
+                        .get(CaseCloseAction.class
+                        ).setEnabled(true);
+                CallableSystemAction
+                        .get(CaseDetailsAction.class
+                        ).setEnabled(true);
+                CallableSystemAction
+                        .get(DataSourceSummaryAction.class
+                        ).setEnabled(true);
+                CallableSystemAction
+                        .get(CaseDeleteAction.class
+                        ).setEnabled(true);
+                CallableSystemAction
+                        .get(OpenTimelineAction.class
+                        ).setEnabled(true);
+                CallableSystemAction
+                        .get(OpenCommVisualizationToolAction.class
+                        ).setEnabled(true);
+                CallableSystemAction
+                        .get(CommonAttributeSearchAction.class
+                        ).setEnabled(true);
+                CallableSystemAction
+                        .get(OpenOutputFolderAction.class
+                        ).setEnabled(false);
 
                 /*
                  * Add the case to the recent cases tracker that supplies a list
@@ -1149,15 +1202,33 @@ public class Case {
                 /*
                  * Disable the case-specific menu items.
                  */
-                CallableSystemAction.get(AddImageAction.class).setEnabled(false);
-                CallableSystemAction.get(CaseCloseAction.class).setEnabled(false);
-                CallableSystemAction.get(CaseDetailsAction.class).setEnabled(false);
-                CallableSystemAction.get(DataSourceSummaryAction.class).setEnabled(false);
-                CallableSystemAction.get(CaseDeleteAction.class).setEnabled(false);
-                CallableSystemAction.get(OpenTimelineAction.class).setEnabled(false);
-                CallableSystemAction.get(OpenCommVisualizationToolAction.class).setEnabled(false);
-                CallableSystemAction.get(OpenOutputFolderAction.class).setEnabled(false);
-                CallableSystemAction.get(CommonAttributeSearchAction.class).setEnabled(false);
+                CallableSystemAction
+                        .get(AddImageAction.class
+                        ).setEnabled(false);
+                CallableSystemAction
+                        .get(CaseCloseAction.class
+                        ).setEnabled(false);
+                CallableSystemAction
+                        .get(CaseDetailsAction.class
+                        ).setEnabled(false);
+                CallableSystemAction
+                        .get(DataSourceSummaryAction.class
+                        ).setEnabled(false);
+                CallableSystemAction
+                        .get(CaseDeleteAction.class
+                        ).setEnabled(false);
+                CallableSystemAction
+                        .get(OpenTimelineAction.class
+                        ).setEnabled(false);
+                CallableSystemAction
+                        .get(OpenCommVisualizationToolAction.class
+                        ).setEnabled(false);
+                CallableSystemAction
+                        .get(OpenOutputFolderAction.class
+                        ).setEnabled(false);
+                CallableSystemAction
+                        .get(CommonAttributeSearchAction.class
+                        ).setEnabled(false);
 
                 /*
                  * Clear the notifications in the notfier component in the lower
@@ -1529,7 +1600,7 @@ public class Case {
     }
 
     /**
-     * Notifies case event subscribers that a data source has been delete from 
+     * Notifies case event subscribers that a data source has been delete from
      * the case database.
      *
      * This should not be called from the event dispatch thread (EDT)
@@ -2273,7 +2344,9 @@ public class Case {
          * one starts by awaiting termination of the executor service.
          */
         progressIndicator.progress(Bundle.Case_progressMessage_openingApplicationServiceResources());
-        for (AutopsyService service : Lookup.getDefault().lookupAll(AutopsyService.class)) {
+
+        for (AutopsyService service : Lookup.getDefault().lookupAll(AutopsyService.class
+        )) {
             /*
              * Create a progress indicator for the task and start the task. If
              * running with a GUI, the progress indicator will be a dialog box
@@ -2532,7 +2605,8 @@ public class Case {
          * Each service gets its own independently cancellable task, and thus
          * its own task progress indicator.
          */
-        for (AutopsyService service : Lookup.getDefault().lookupAll(AutopsyService.class)) {
+        for (AutopsyService service : Lookup.getDefault().lookupAll(AutopsyService.class
+        )) {
             ProgressIndicator progressIndicator;
             if (RuntimeProperties.runningWithGUI()) {
                 progressIndicator = new ModalDialogProgressIndicator(
@@ -2875,7 +2949,9 @@ public class Case {
     })
     private static void deleteTextIndex(CaseMetadata metadata, ProgressIndicator progressIndicator) throws KeywordSearchServiceException {
         progressIndicator.progress(Bundle.Case_progressMessage_deletingTextIndex());
-        for (KeywordSearchService searchService : Lookup.getDefault().lookupAll(KeywordSearchService.class)) {
+
+        for (KeywordSearchService searchService : Lookup.getDefault().lookupAll(KeywordSearchService.class
+        )) {
             searchService.deleteTextIndex(metadata);
         }
     }
@@ -2976,6 +3052,7 @@ public class Case {
             CaseNodeData.writeCaseNodeData(caseNodeData);
         } catch (CaseNodeDataException ex) {
             logger.log(Level.SEVERE, String.format("Error updating deleted item flag %s for %s (%s) in %s", flag.name(), caseNodeData.getDisplayName(), caseNodeData.getName(), caseNodeData.getDirectory()), ex);
+
         }
     }
 
