@@ -20,6 +20,7 @@ package org.sleuthkit.autopsy.actions;
 
 import java.awt.event.ActionEvent;
 import java.text.MessageFormat;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import javax.swing.AbstractAction;
@@ -34,56 +35,67 @@ import org.sleuthkit.autopsy.casemodule.Case;
 import org.sleuthkit.autopsy.casemodule.CaseActionException;
 import org.sleuthkit.autopsy.coreutils.Logger;
 import org.sleuthkit.autopsy.coreutils.MessageNotifyUtil;
+import org.sleuthkit.autopsy.ingest.DataSourceIngestJob;
+import org.sleuthkit.autopsy.ingest.DataSourceIngestJob.Snapshot;
+import org.sleuthkit.autopsy.ingest.IngestManager;
 import org.sleuthkit.autopsy.keywordsearchservice.KeywordSearchService;
 import org.sleuthkit.autopsy.keywordsearchservice.KeywordSearchServiceException;
 
-
 public final class DeleteDataSourceAction extends AbstractAction {
+
     private static final Logger logger = Logger.getLogger(DeleteDataSourceAction.class.getName());
     private final Long selectedDataSource;
-    
+
     @NbBundle.Messages({"DeleteDataSourceAction.name.text=Delete Data Source"})
     public DeleteDataSourceAction(Long selectedDataSource) {
         super(Bundle.DeleteDataSourceAction_name_text());
         this.selectedDataSource = selectedDataSource;
-        
 
     }
+
     @NbBundle.Messages({"ErrorDeletingDataSource.name.text=Error Deleting Data Source. See log for details.",
-                        "DeleteDataSourceConfirmationDialog_message=Are you sure you want to delete the data source?",
-                        "DeleteDataSourceConfirmationDialog_title=Delete Data Source?"})
+        "ErrorDeletingDataSource.ingest.running=Cannot delete a Data Source when ingest is running.",
+        "DeleteDataSourceConfirmationDialog_message=Are you sure you want to delete the data source?",
+        "DeleteDataSourceConfirmationDialog_title=Delete Data Source?"})
     @Override
     public void actionPerformed(ActionEvent event) {
-        Object response = DialogDisplayer.getDefault().notify(new NotifyDescriptor(
-                Bundle.DeleteDataSourceConfirmationDialog_message(),
-                Bundle.DeleteDataSourceConfirmationDialog_title(),
-                NotifyDescriptor.YES_NO_OPTION,
-                NotifyDescriptor.WARNING_MESSAGE,
-                null,
-                NotifyDescriptor.NO_OPTION));
-        if (null != response && DialogDescriptor.YES_OPTION == response) {
+        if (!IngestManager.getInstance().isIngestRunning()) {
 
-            new SwingWorker<Void, Void>() {
+            Object response = DialogDisplayer.getDefault().notify(new NotifyDescriptor(
+                    Bundle.DeleteDataSourceConfirmationDialog_message(),
+                    Bundle.DeleteDataSourceConfirmationDialog_title(),
+                    NotifyDescriptor.YES_NO_OPTION,
+                    NotifyDescriptor.WARNING_MESSAGE,
+                    null,
+                    NotifyDescriptor.NO_OPTION));
+            if (null != response && DialogDescriptor.YES_OPTION == response) {
 
-                @Override
-                protected Void doInBackground() throws Exception {
-                    try {
-                        Case.deleteDataSourceFromCurrentCase(selectedDataSource);
-                        deleteDataSource(selectedDataSource);
-                    } catch (CaseActionException | KeywordSearchServiceException ex) {
-                        logger.log(Level.WARNING, Bundle.ErrorDeletingDataSource_name_text(), ex);
-                        MessageNotifyUtil.Message.info(Bundle.ErrorDeletingDataSource_name_text()); 
+                new SwingWorker<Void, Void>() {
+
+                    @Override
+                    protected Void doInBackground() throws Exception {
+                        try {
+                            Case.deleteDataSourceFromCurrentCase(selectedDataSource);
+                            deleteDataSource(selectedDataSource);
+                        } catch (CaseActionException | KeywordSearchServiceException ex) {
+                            logger.log(Level.WARNING, Bundle.ErrorDeletingDataSource_name_text(), ex);
+                            MessageNotifyUtil.Message.info(Bundle.ErrorDeletingDataSource_name_text());
+                        }
+                        return null;
                     }
-                    return null;
-                }
 
-                @Override
-                protected void done() {
-                }
-            }.execute();        
+                    @Override
+                    protected void done() {
+                    }
+                }.execute();
+            }
+        } else {
+            logger.log(Level.WARNING, Bundle.ErrorDeletingDataSource_ingest_running());
+            MessageNotifyUtil.Message.info(Bundle.ErrorDeletingDataSource_ingest_running());
+
         }
-    } 
-    
+    }
+
     private static void deleteDataSource(Long dataSourceId) throws KeywordSearchServiceException {
         try {
             KeywordSearchService kwsService = Lookup.getDefault().lookup(KeywordSearchService.class);
@@ -91,6 +103,6 @@ public final class DeleteDataSourceAction extends AbstractAction {
         } catch (KeywordSearchServiceException ex) {
             logger.log(Level.WARNING, "KWS Error", ex);
         }
-        
+
     }
 }
