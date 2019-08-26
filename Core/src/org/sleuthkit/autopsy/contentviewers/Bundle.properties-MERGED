@@ -10,6 +10,24 @@ AnnotationsContentViewer.title=Annotations
 AnnotationsContentViewer.toolTip=Displays tags and comments associated with the selected content.
 ApplicationContentViewer.title=Application
 ApplicationContentViewer.toolTip=Displays file contents.
+ExtViewer.comboBox.noTableEntry=No tables found
+ExtViewer.csvExport.confirm.msg=Do you want to overwrite the existing file?
+ExtViewer.csvExport.fileName.empty=Please input a file name for exporting.
+ExtViewer.csvExport.title=Export to csv file
+ExtViewer.errorMessage.failedToExtractFile=The file could not be extracted from the data source.
+ExtViewer.errorMessage.failedToinitJDBCDriver=The JDBC driver for SQLite could not be loaded.
+ExtViewer.errorMessage.failedToQueryDatabase=The database tables in the file could not be read.
+ExtViewer.errorMessage.interrupted=The processing of the file was interrupted.
+ExtViewer.errorMessage.noCurrentCase=The case has been closed.
+# {0} - exception message
+ExtViewer.errorMessage.unexpectedError=An unexpected error occurred:\n{0).
+ExtViewer.exportTableToCsv.FileName=File name: 
+ExtViewer.exportTableToCsv.TableName=Table name: 
+ExtViewer.exportTableToCsv.write.errText=Failed to export table content to csv file.
+# {0} - tableName
+ExtViewer.readTable.errorText=Error getting rows for table: {0}
+# {0} - tableName
+ExtViewer.selectTable.errorText=Error getting row count for table: {0}
 FXVideoPanel.pauseButton.infoLabel.playbackErr=Unable to play video.
 FXVideoPanel.progress.bufferingCancelled=media buffering was canceled
 FXVideoPanel.progress.bufferingInterrupted=media buffering was interrupted
@@ -155,11 +173,19 @@ MediaViewImagePanel.rotationTextField.text=
 MediaViewImagePanel.rotateLeftButton.toolTipText=
 HtmlPanel.showImagesToggleButton.text=Download Images
 MediaPlayerPanel.audioSlider.toolTipText=
-MediaPlayerPanel.VolumeIcon.text=\ \ \ \ \ Volume
+MediaPlayerPanel.VolumeIcon.text=\     Volume
 MediaPlayerPanel.progressLabel.text=00:00:00/00:00:00
 MediaPlayerPanel.playButton.text=\u25ba
 MediaPlayerPanel.infoLabel.text=No Errors
 MediaViewImagePanel.tagsMenu.text_1=Tags Menu
+EvtxViewer.currPageLabel.text=x
+EvtxViewer.jLabel2.text=Page
+EvtxViewer.numEntriesField.text=num Entries
+EvtxViewer.exportCsvButton.text=Export to CSV
+EvtxViewer.nextPageButton.text=
+EvtxViewer.prevPageButton.text=
+EvtxViewer.numPagesLabel.text=N
+EvtxViewer.jLabel3.text=of
 # {0} - tableName
 SQLiteViewer.readTable.errorText=Error getting rows for table: {0}
 # {0} - tableName

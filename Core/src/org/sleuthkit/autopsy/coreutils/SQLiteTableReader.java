@@ -42,14 +42,15 @@ import org.sleuthkit.datamodel.SleuthkitCase;
 import org.sleuthkit.datamodel.TskCoreException;
 
 /**
- * Reads through SQLite tables row by row. Functions performed on the 
- * data must be declared up front to the Builder. For example:
- * 
- * tableReader = new SQLiteTableReader.Builder(file).forAllColumnNames(System.out::println);
+ * Reads through SQLite tables row by row. Functions performed on the data must
+ * be declared up front to the Builder. For example:
+ *
+ * tableReader = new
+ * SQLiteTableReader.Builder(file).forAllColumnNames(System.out::println);
  * tableReader.read("Sample Table X");
- * 
- * By declaring the functions up front, the SQLiteTableReader instance can stream the 
- * table contents in the most memory efficient manner. 
+ *
+ * By declaring the functions up front, the SQLiteTableReader instance can
+ * stream the table contents in the most memory efficient manner.
  */
 public class SQLiteTableReader implements AutoCloseable {
 
@@ -60,6 +61,8 @@ public class SQLiteTableReader implements AutoCloseable {
 
         private final AbstractFile file;
 
+        private final String actualFileName;
+
         private Consumer<String> forAllColumnNamesConsumer;
         private Consumer<String> forAllStringValuesConsumer;
         private Consumer<Long> forAllLongValuesConsumer;
@@ -67,9 +70,10 @@ public class SQLiteTableReader implements AutoCloseable {
         private Consumer<Double> forAllFloatValuesConsumer;
         private Consumer<byte[]> forAllBlobValuesConsumer;
         private Consumer<Object> forAllTableValuesConsumer;
-        
+
         static <T> Consumer<T> doNothing() {
-            return NOOP -> {};
+            return NOOP -> {
+            };
         }
 
         /**
@@ -79,6 +83,27 @@ public class SQLiteTableReader implements AutoCloseable {
          */
         public Builder(AbstractFile file) {
             this.file = file;
+            this.actualFileName = null;
+            
+            this.forAllColumnNamesConsumer = Builder.doNothing();
+            this.forAllStringValuesConsumer = Builder.doNothing();
+            this.forAllLongValuesConsumer = Builder.doNothing();
+            this.forAllIntegerValuesConsumer = Builder.doNothing();
+            this.forAllFloatValuesConsumer = Builder.doNothing();
+            this.forAllBlobValuesConsumer = Builder.doNothing();
+            this.forAllTableValuesConsumer = Builder.doNothing();
+        }
+
+        /**
+         * Create a Builder for a SQLite db represented by a file.
+         *
+         *
+         * @param file
+         * @param actualFileName - is the actual file name for the abstract file
+         */
+        public Builder(AbstractFile file, String actualFileName) {
+            this.file = file;
+            this.actualFileName = actualFileName;
 
             this.forAllColumnNamesConsumer = Builder.doNothing();
             this.forAllStringValuesConsumer = Builder.doNothing();
@@ -194,7 +219,8 @@ public class SQLiteTableReader implements AutoCloseable {
 
     private final AbstractFile file;
     private final Builder builder;
-  
+    private final String actualFileName;
+
     private static final String SELECT_ALL_QUERY = "SELECT * FROM \"%s\"";
     private static final Logger logger = Logger.getLogger(SQLiteTableReader.class.getName());
 
@@ -218,6 +244,17 @@ public class SQLiteTableReader implements AutoCloseable {
     private SQLiteTableReader(Builder builder) {
         this.builder = builder;
         this.file = builder.file;
+        this.actualFileName = builder.actualFileName;
+    }
+
+    /**
+     * Holds reference to the builder instance so that we can use its actions
+     * during iteration.
+     */
+    private SQLiteTableReader(Builder builder, String actualFileName) {
+        this.builder = builder;
+        this.file = builder.file;
+        this.actualFileName = actualFileName;
     }
 
     /**
@@ -398,14 +435,22 @@ public class SQLiteTableReader implements AutoCloseable {
         if (Objects.isNull(conn)) {
             try {
                 Class.forName("org.sqlite.JDBC"); //NON-NLS  
-                String localDiskPath = copyFileToTempDirectory(file, file.getId());
+                String localDiskPath = null;
+                if (actualFileName == null) {
+                    try {
+                        localDiskPath = copyFileToTempDirectory(file, file.getId());
 
-                //Find and copy both WAL and SHM meta files 
-                findAndCopySQLiteMetaFile(file, file.getName() + "-wal");
-                findAndCopySQLiteMetaFile(file, file.getName() + "-shm");
+                        //Find and copy both WAL and SHM meta files 
+                        findAndCopySQLiteMetaFile(file, file.getName() + "-wal");
+                        findAndCopySQLiteMetaFile(file, file.getName() + "-shm");
+                    } catch (NoCurrentCaseException | TskCoreException | IOException ex) {
+                        throw new SQLiteTableReaderException(ex);
+                    }
+                } else {
+                    localDiskPath = actualFileName;
+                }
                 conn = DriverManager.getConnection("jdbc:sqlite:" + localDiskPath);
-            } catch (NoCurrentCaseException | TskCoreException | IOException
-                    | ClassNotFoundException | SQLException ex) {
+            } catch (ClassNotFoundException | SQLException ex) {
                 throw new SQLiteTableReaderException(ex);
             }
         }
@@ -446,8 +491,8 @@ public class SQLiteTableReader implements AutoCloseable {
      * Copies the file contents into a unique path in the current case temp
      * directory.
      *
-     * @param file AbstractFile from the data source
-     * @param fileId   The input files id value
+     * @param file   AbstractFile from the data source
+     * @param fileId The input files id value
      *
      * @return The path of the file on disk
      *

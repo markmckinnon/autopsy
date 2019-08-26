@@ -71,6 +71,7 @@ public final class RAImageIngestModule implements DataSourceIngestModule {
         Extract registry = new ExtractRegistry();
         Extract recentDocuments = new RecentDocumentsByLnk();
         Extract chrome = new Chrome();
+        Extract eventLogs = new ExtractEvtx();
         Extract firefox = new Firefox();
         Extract SEUQA = new SearchEngineURLQueryAnalyzer();
         Extract osExtract = new ExtractOs();
@@ -79,6 +80,7 @@ public final class RAImageIngestModule implements DataSourceIngestModule {
         Extract zoneInfo = new ExtractZoneIdentifier();
 
         extractors.add(chrome);
+        extractors.add(eventLogs);
         extractors.add(firefox);
         extractors.add(iexplore);
         extractors.add(edge);
