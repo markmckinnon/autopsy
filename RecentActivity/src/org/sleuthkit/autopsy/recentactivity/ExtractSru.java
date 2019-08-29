@@ -92,19 +92,22 @@ final class ExtractSru extends Extract {
             return;  // No need to continue
         }
 
+        String sruFile = null;
+        String tempOutFile = null;
+
         for (AbstractFile iFile : iFiles) {
 
             if (context.dataSourceIngestIsCancelled()) {
                 return;
             }
 
-            String tempFilePath = tempDirPath + File.separator + iFile.getId() + "_" + iFile.getName();
-            String tempOutFile = tempDirPath + File.separator + iFile.getId() + "_srudb.db3";
+            sruFile = tempDirPath + File.separator + iFile.getId() + "_" + iFile.getName();
+            tempOutFile = tempDirPath + File.separator + iFile.getId() + "_srudb.db3";
 
             try {
-                ContentUtils.writeToFile(iFile, new File(tempFilePath));
+                ContentUtils.writeToFile(iFile, new File(sruFile));
             } catch (IOException ex) {
-                logger.log(Level.WARNING, String.format("Unable to write %s to temp directory. File name: %s", iFile.getName(), tempFilePath), ex); //NON-NLS
+                logger.log(Level.WARNING, String.format("Unable to write %s to temp directory. File name: %s", iFile.getName(), sruFile), ex); //NON-NLS
             }
 
         }
@@ -119,9 +122,14 @@ final class ExtractSru extends Extract {
         if (context.dataSourceIngestIsCancelled()) {
             return;
         }
+        if (sruFile == null) {
+//            this.addErrorMessage(Bundle.ExtractEdge_process_errMsg_unableFindESEViewer());
+            logger.log(Level.SEVERE, "SRUDB.dat file not found"); //NON-NLS
+            return; //If we cannot find the ESEDatabaseView we cannot proceed
+        }
 
         try {
-            extractSruFiles(sruDumper, tempDirPath, tempOutPath);
+            extractSruFiles(sruDumper, sruFile, tempOutFile, tempDirPath);
         } finally {
             return;
         }
@@ -138,15 +146,15 @@ final class ExtractSru extends Extract {
      * @throws FileNotFoundException
      * @throws IOException
      */
-    void extractSruFiles(String sruExePath, String tempDirPath, String tempOutPath) throws FileNotFoundException, IOException {
+    void extractSruFiles(String sruExePath, String sruFile, String tempOutFile, String tempOutPath) throws FileNotFoundException, IOException {
         final Path outputFilePath = Paths.get(tempOutPath, SRU_OUTPUT_FILE_NAME);
         final Path errFilePath = Paths.get(tempOutPath, SRU_ERROR_FILE_NAME);
 
         
         List<String> commandLine = new ArrayList<>();
         commandLine.add(sruExePath);
-        commandLine.add(tempDirPath);  //NON-NLS
-        commandLine.add(tempOutPath);
+        commandLine.add(sruFile);  //NON-NLS
+        commandLine.add(tempOutFile);
 
         ProcessBuilder processBuilder = new ProcessBuilder(commandLine);
         processBuilder.redirectOutput(outputFilePath.toFile());
