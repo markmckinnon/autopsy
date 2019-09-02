@@ -91,7 +91,7 @@ final class ExtractPrefetch extends Extract {
     private static final String PREFETCH_ERROR_FILE_NAME = "Error.txt"; //NON-NLS
 
     @Messages({
-        "ExtractPrefetch_module_name=System Resource Usage Extractor"
+        "ExtractPrefetch_module_name=Windows Prefetch Extractor"
     })
     ExtractPrefetch() {
         this.moduleName = Bundle.ExtractPrefetch_module_name();
@@ -163,7 +163,7 @@ final class ExtractPrefetch extends Extract {
             createPrefetchAttributeType();
             createPrefetchArtifactType();
             createAppExecArtifacts(tempOutFile, dataSource);
-//            createNetUsageArtifacts(tempOutFile, prefetchAbstractFile);
+            createPrefetchArtifacts(tempOutFile, dataSource);
         } finally {
             return;
         }
@@ -250,6 +250,136 @@ final class ExtractPrefetch extends Extract {
                 List<AbstractFile> pFiles;
                 try {
                     pFiles = fileManager.findFiles(dataSource, applicationName, "Prefetch");
+                } catch (TskCoreException ex) {
+                    logger.log(Level.WARNING, "Unable to find prefetch files.", ex); //NON-NLS
+                    return;  // No need to continue
+                }
+                for (AbstractFile pFile : pFiles) {
+                    try {
+                        BlackboardArtifact bbart = pFile.newArtifact(artifactType.getTypeID());
+                        bbart.addAttributes(bbattributes);
+                        try {
+                            /*
+                             * Post the artifact which will index the artifact
+                             * for keyword search, and fire an event to notify
+                             * UI of this new artifact
+                             */
+                            blackboard.postArtifact(bbart, MODULE_NAME);
+                        } catch (Blackboard.BlackboardException ex) {
+                            logger.log(Level.SEVERE, "Error Posting Artifact.", ex);//NON-NLS
+                        }
+                    } catch (TskCoreException ex) {
+                        logger.log(Level.SEVERE, "Exception Adding Artifact.", ex);//NON-NLS
+                    }
+                }
+            }
+        } catch (SQLException ex) {
+            logger.log(Level.SEVERE, "Error while trying to read into a sqlite db.", ex);//NON-NLS
+        }
+    }
+
+    private void createPrefetchArtifacts(String prefetchDb, Content dataSource) {
+        Blackboard blackboard = currentCase.getSleuthkitCase().getBlackboard();
+        BlackboardAttribute.Type pfFileNameAttributeType;
+        BlackboardAttribute.Type pfRunCountAttributeType;
+        BlackboardAttribute.Type pfDttm1AttributeType;        
+        BlackboardAttribute.Type pfDttm2AttributeType;        
+        BlackboardAttribute.Type pfDttm3AttributeType;        
+        BlackboardAttribute.Type pfDttm4AttributeType;        
+        BlackboardAttribute.Type pfDttm5AttributeType;        
+        BlackboardAttribute.Type pfDttm6AttributeType;        
+        BlackboardAttribute.Type pfDttm7AttributeType;        
+        BlackboardAttribute.Type pfDttm8AttributeType;        
+        BlackboardArtifact.Type artifactType;
+ 
+        try {
+            pfFileNameAttributeType = currentCase.getSleuthkitCase().getAttributeType(PREFETCH_FILE_NAME_ART_NAME);
+            pfRunCountAttributeType = currentCase.getSleuthkitCase().getAttributeType(PREFETCH_RUN_COUNT_ART_NAME);
+            pfDttm1AttributeType = currentCase.getSleuthkitCase().getAttributeType(EXECUTION_DTTM_1_ART_NAME);
+            pfDttm2AttributeType = currentCase.getSleuthkitCase().getAttributeType(EXECUTION_DTTM_2_ART_NAME);
+            pfDttm3AttributeType = currentCase.getSleuthkitCase().getAttributeType(EXECUTION_DTTM_3_ART_NAME);
+            pfDttm4AttributeType = currentCase.getSleuthkitCase().getAttributeType(EXECUTION_DTTM_4_ART_NAME);
+            pfDttm5AttributeType = currentCase.getSleuthkitCase().getAttributeType(EXECUTION_DTTM_5_ART_NAME);
+            pfDttm6AttributeType = currentCase.getSleuthkitCase().getAttributeType(EXECUTION_DTTM_6_ART_NAME);
+            pfDttm7AttributeType = currentCase.getSleuthkitCase().getAttributeType(EXECUTION_DTTM_7_ART_NAME);
+            pfDttm8AttributeType = currentCase.getSleuthkitCase().getAttributeType(EXECUTION_DTTM_8_ART_NAME);
+            artifactType = currentCase.getSleuthkitCase().getArtifactType(PREFETCH_ARTIFACT_NAME);
+        } catch (TskCoreException ex) {
+            logger.log(Level.SEVERE, "Error Finding Attribute and Artifact in prefetch.", ex);//NON-NLS
+            return;
+        }
+
+//        Content prefetchContentFile = prefetchAbstractFile;
+        String sqlStatement = "SELECT prefetch_File_name, actual_file_Name, Number_time_file_run, Embeded_date_time_Unix_1, " +
+                              " Embeded_date_time_Unix_2, Embeded_date_time_Unix_3, Embeded_date_time_Unix_4, " +
+                              " Embeded_date_time_Unix_5, Embeded_date_time_Unix_6, Embeded_date_time_Unix_7, " +
+                              " Embeded_date_time_Unix_8 FROM prefetch_file_info;"; //NON-NLS
+
+        try (SQLiteDBConnect tempdbconnect = new SQLiteDBConnect("org.sqlite.JDBC", "jdbc:sqlite:" + prefetchDb); //NON-NLS
+                ResultSet resultSet = tempdbconnect.executeQry(sqlStatement)) {
+
+            while (resultSet.next()) {
+
+                if (context.dataSourceIngestIsCancelled()) {
+                    logger.log(Level.INFO, "Cancelled PREFETCH Artifact Creation."); //NON-NLS
+                    return;
+                }
+
+                String prefetchFileName = resultSet.getString("prefetch_file_name"); //NON-NLS
+                String actualFileName = resultSet.getString("actual_File_Name"); //NON-NLS
+                Long numberTimeFileRun = new Long(resultSet.getInt("Number_Time_FIle_Run")); //NON-NLS
+                Long execDttmRun1 = new Long(resultSet.getInt("Embeded_date_time_Unix_1")); //NON-NLS
+                Long execDttmRun2 = new Long(resultSet.getInt("Embeded_date_time_Unix_2")); //NON-NLS
+                Long execDttmRun3 = new Long(resultSet.getInt("Embeded_date_time_Unix_3")); //NON-NLS
+                Long execDttmRun4 = new Long(resultSet.getInt("Embeded_date_time_Unix_4")); //NON-NLS
+                Long execDttmRun5 = new Long(resultSet.getInt("Embeded_date_time_Unix_5")); //NON-NLS
+                Long execDttmRun6 = new Long(resultSet.getInt("Embeded_date_time_Unix_6")); //NON-NLS
+                Long execDttmRun7 = new Long(resultSet.getInt("Embeded_date_time_Unix_7")); //NON-NLS
+                Long execDttmRun8 = new Long(resultSet.getInt("Embeded_date_time_Unix_8")); //NON-NLS
+                
+
+                Collection<BlackboardAttribute> bbattributes = Arrays.asList(
+                        //                        new BlackboardAttribute(
+                        //                                TSK_DATETIME, getName(),
+                        //                                executionTime), //NON-NLS
+                        new BlackboardAttribute(
+                                pfFileNameAttributeType, getName(),
+                                prefetchFileName),//NON-NLS
+                        new BlackboardAttribute(
+                                TSK_PROG_NAME, getName(),
+                                actualFileName),
+                        new BlackboardAttribute(
+                                pfRunCountAttributeType, getName(),
+                                numberTimeFileRun),
+                        new BlackboardAttribute(
+                                pfDttm1AttributeType, getName(),
+                                execDttmRun1),
+                        new BlackboardAttribute(
+                                pfDttm2AttributeType, getName(),
+                                execDttmRun2),
+                        new BlackboardAttribute(
+                                pfDttm3AttributeType, getName(),
+                                execDttmRun3),
+                        new BlackboardAttribute(
+                                pfDttm4AttributeType, getName(),
+                                execDttmRun4),
+                        new BlackboardAttribute(
+                                pfDttm5AttributeType, getName(),
+                                execDttmRun5),
+                        new BlackboardAttribute(
+                                pfDttm6AttributeType, getName(),
+                                execDttmRun6),
+                        new BlackboardAttribute(
+                                pfDttm7AttributeType, getName(),
+                                execDttmRun7),
+                        new BlackboardAttribute(
+                                pfDttm8AttributeType, getName(),
+                                execDttmRun8));
+
+                FileManager fileManager = Case.getCurrentCase().getServices().getFileManager();
+                List<AbstractFile> pFiles;
+                try {
+                    pFiles = fileManager.findFiles(dataSource, prefetchFileName, "Prefetch");
                 } catch (TskCoreException ex) {
                     logger.log(Level.WARNING, "Unable to find prefetch files.", ex); //NON-NLS
                     return;  // No need to continue
