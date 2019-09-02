@@ -78,7 +78,9 @@ public final class RAImageIngestModule implements DataSourceIngestModule {
         Extract safari = new ExtractSafari();
         Extract zoneInfo = new ExtractZoneIdentifier();
         Extract sru = new ExtractSru();
+        Extract prefetch = new ExtractPrefetch();
 
+        extractors.add(prefetch);
         extractors.add(sru);
         extractors.add(chrome);
         extractors.add(firefox);
