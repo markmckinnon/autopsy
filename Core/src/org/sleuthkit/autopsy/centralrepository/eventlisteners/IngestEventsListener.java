@@ -25,8 +25,10 @@ import static java.lang.Boolean.FALSE;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
@@ -37,11 +39,9 @@ import org.sleuthkit.autopsy.casemodule.Case;
 import org.sleuthkit.autopsy.casemodule.NoCurrentCaseException;
 import org.sleuthkit.autopsy.centralrepository.datamodel.CorrelationAttributeInstance;
 import org.sleuthkit.autopsy.centralrepository.datamodel.CorrelationAttributeNormalizationException;
-import org.sleuthkit.autopsy.centralrepository.datamodel.EamArtifactUtil;
-import org.sleuthkit.autopsy.centralrepository.datamodel.EamDb;
-import org.sleuthkit.autopsy.centralrepository.datamodel.EamDbException;
+import org.sleuthkit.autopsy.centralrepository.datamodel.CorrelationAttributeUtil;
+import org.sleuthkit.autopsy.centralrepository.datamodel.CentralRepoException;
 import org.sleuthkit.autopsy.coreutils.Logger;
-import org.sleuthkit.autopsy.coreutils.ThreadUtils;
 import org.sleuthkit.autopsy.ingest.IngestManager;
 import org.sleuthkit.autopsy.ingest.ModuleDataEvent;
 import org.sleuthkit.autopsy.centralrepository.datamodel.CorrelationCase;
@@ -51,14 +51,17 @@ import org.sleuthkit.datamodel.Blackboard;
 import org.sleuthkit.datamodel.BlackboardArtifact;
 import static org.sleuthkit.datamodel.BlackboardArtifact.ARTIFACT_TYPE.TSK_INTERESTING_ARTIFACT_HIT;
 import org.sleuthkit.datamodel.BlackboardAttribute;
+import org.sleuthkit.autopsy.coreutils.ThreadUtils;
+import static org.sleuthkit.autopsy.ingest.IngestManager.IngestModuleEvent.DATA_ADDED;
 import static org.sleuthkit.datamodel.BlackboardAttribute.ATTRIBUTE_TYPE.TSK_ASSOCIATED_ARTIFACT;
 import static org.sleuthkit.datamodel.BlackboardAttribute.ATTRIBUTE_TYPE.TSK_COMMENT;
 import static org.sleuthkit.datamodel.BlackboardAttribute.ATTRIBUTE_TYPE.TSK_SET_NAME;
-import org.sleuthkit.autopsy.ingest.events.DataSourceAnalysisCompletedEvent;
+import org.sleuthkit.autopsy.ingest.events.DataSourceAnalysisEvent;
 import org.sleuthkit.datamodel.Content;
 import org.sleuthkit.datamodel.Image;
 import org.sleuthkit.datamodel.SleuthkitCase;
 import org.sleuthkit.datamodel.TskCoreException;
+import org.sleuthkit.autopsy.centralrepository.datamodel.CentralRepository;
 
 /**
  * Listen for ingest events and update entries in the Central Repository
@@ -68,17 +71,18 @@ import org.sleuthkit.datamodel.TskCoreException;
 public class IngestEventsListener {
 
     private static final Logger LOGGER = Logger.getLogger(CorrelationAttributeInstance.class.getName());
+    private static final Set<IngestManager.IngestJobEvent> INGEST_JOB_EVENTS_OF_INTEREST = EnumSet.of(IngestManager.IngestJobEvent.DATA_SOURCE_ANALYSIS_COMPLETED);
+    private static final Set<IngestManager.IngestModuleEvent> INGEST_MODULE_EVENTS_OF_INTEREST = EnumSet.of(DATA_ADDED);
     private static final String MODULE_NAME = Bundle.IngestEventsListener_ingestmodule_name();
-
-    final Collection<String> recentlyAddedCeArtifacts = new LinkedHashSet<>();
     private static int correlationModuleInstanceCount;
     private static boolean flagNotableItems;
     private static boolean flagSeenDevices;
     private static boolean createCrProperties;
-    private final ExecutorService jobProcessingExecutor;
     private static final String INGEST_EVENT_THREAD_NAME = "Ingest-Event-Listener-%d";
+    private final ExecutorService jobProcessingExecutor;
     private final PropertyChangeListener pcl1 = new IngestModuleEventListener();
     private final PropertyChangeListener pcl2 = new IngestJobEventListener();
+    final Collection<String> recentlyAddedCeArtifacts = new LinkedHashSet<>();
 
     IngestEventsListener() {
         jobProcessingExecutor = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder().setNameFormat(INGEST_EVENT_THREAD_NAME).build());
@@ -92,8 +96,8 @@ public class IngestEventsListener {
      * Add all of our Ingest Event Listeners to the IngestManager Instance.
      */
     public void installListeners() {
-        IngestManager.getInstance().addIngestModuleEventListener(pcl1);
-        IngestManager.getInstance().addIngestJobEventListener(pcl2);
+        IngestManager.getInstance().addIngestModuleEventListener(INGEST_MODULE_EVENTS_OF_INTEREST, pcl1);
+        IngestManager.getInstance().addIngestJobEventListener(INGEST_JOB_EVENTS_OF_INTEREST, pcl2);
     }
 
     /*
@@ -220,15 +224,19 @@ public class IngestEventsListener {
      * in the central repository.
      *
      * @param originalArtifact the artifact to create the interesting item for
+     * @param caseDisplayNames the case names the artifact was previously seen in
      */
     @NbBundle.Messages({"IngestEventsListener.prevExists.text=Previously Seen Devices (Central Repository)",
         "# {0} - typeName",
         "# {1} - count",
         "IngestEventsListener.prevCount.text=Number of previous {0}: {1}"})
-    static private void makeAndPostPreviousSeenArtifact(BlackboardArtifact originalArtifact) {
+    static private void makeAndPostPreviousSeenArtifact(BlackboardArtifact originalArtifact, List<String> caseDisplayNames) {
         Collection<BlackboardAttribute> attributesForNewArtifact = Arrays.asList(new BlackboardAttribute(
                         TSK_SET_NAME, MODULE_NAME,
                         Bundle.IngestEventsListener_prevExists_text()),
+                new BlackboardAttribute(
+                        TSK_COMMENT, MODULE_NAME,
+                        Bundle.IngestEventsListener_prevCaseComment_text() + caseDisplayNames.stream().distinct().collect(Collectors.joining(","))),
                 new BlackboardAttribute(
                         TSK_ASSOCIATED_ARTIFACT, MODULE_NAME,
                         originalArtifact.getArtifactID()));
@@ -272,10 +280,10 @@ public class IngestEventsListener {
             //sometimes artifacts are generated by DSPs or other sources while ingest is not running
             //in these cases we still want to create correlation attributesForNewArtifact for those artifacts when appropriate
             if (!IngestManager.getInstance().isIngestRunning() || getCeModuleInstanceCount() > 0) {
-                EamDb dbManager;
+                CentralRepository dbManager;
                 try {
-                    dbManager = EamDb.getInstance();
-                } catch (EamDbException ex) {
+                    dbManager = CentralRepository.getInstance();
+                } catch (CentralRepoException ex) {
                     LOGGER.log(Level.SEVERE, "Failed to connect to Central Repository database.", ex);
                     return;
                 }
@@ -299,10 +307,10 @@ public class IngestEventsListener {
 
         @Override
         public void propertyChange(PropertyChangeEvent evt) {
-            EamDb dbManager;
+            CentralRepository dbManager;
             try {
-                dbManager = EamDb.getInstance();
-            } catch (EamDbException ex) {
+                dbManager = CentralRepository.getInstance();
+            } catch (CentralRepoException ex) {
                 LOGGER.log(Level.SEVERE, "Failed to connect to Central Repository database.", ex);
                 return;
             }
@@ -321,10 +329,10 @@ public class IngestEventsListener {
 
     private final class AnalysisCompleteTask implements Runnable {
         
-        private final EamDb dbManager;
+        private final CentralRepository dbManager;
         private final PropertyChangeEvent event;
         
-        private AnalysisCompleteTask(EamDb db, PropertyChangeEvent evt) {
+        private AnalysisCompleteTask(CentralRepository db, PropertyChangeEvent evt) {
             dbManager = db;
             event = evt;
         }
@@ -341,15 +349,14 @@ public class IngestEventsListener {
              * Ensure the data source in the Central Repository has hash values
              * that match those in the case database.
              */
-            if (!EamDb.isEnabled()) {
+            if (!CentralRepository.isEnabled()) {
                 return;
             }
             Content dataSource;
             String dataSourceName = "";
             long dataSourceObjectId = -1;
             try {
-                dataSource = ((DataSourceAnalysisCompletedEvent) event).getDataSource();
-                
+                dataSource = ((DataSourceAnalysisEvent) event).getDataSource();
                 /*
                  * We only care about Images for the purpose of
                  * updating hash values.
@@ -405,7 +412,7 @@ public class IngestEventsListener {
                         }
                     }
                 }
-            } catch (EamDbException ex) {
+            } catch (CentralRepoException ex) {
                 LOGGER.log(Level.SEVERE, String.format(
                         "Unable to fetch data from the Central Repository for data source '%s' (obj_id=%d)",
                         dataSourceName, dataSourceObjectId), ex);
@@ -421,13 +428,13 @@ public class IngestEventsListener {
 
     private final class DataAddedTask implements Runnable {
 
-        private final EamDb dbManager;
+        private final CentralRepository dbManager;
         private final PropertyChangeEvent event;
         private final boolean flagNotableItemsEnabled;
         private final boolean flagPreviousItemsEnabled;
         private final boolean createCorrelationAttributes;
 
-        private DataAddedTask(EamDb db, PropertyChangeEvent evt, boolean flagNotableItemsEnabled, boolean flagPreviousItemsEnabled, boolean createCorrelationAttributes) {
+        private DataAddedTask(CentralRepository db, PropertyChangeEvent evt, boolean flagNotableItemsEnabled, boolean flagPreviousItemsEnabled, boolean createCorrelationAttributes) {
             this.dbManager = db;
             this.event = evt;
             this.flagNotableItemsEnabled = flagNotableItemsEnabled;
@@ -437,7 +444,7 @@ public class IngestEventsListener {
 
         @Override
         public void run() {
-            if (!EamDb.isEnabled()) {
+            if (!CentralRepository.isEnabled()) {
                 return;
             }
             final ModuleDataEvent mde = (ModuleDataEvent) event.getOldValue();
@@ -449,7 +456,7 @@ public class IngestEventsListener {
 
             for (BlackboardArtifact bbArtifact : bbArtifacts) {
                 // eamArtifact will be null OR a EamArtifact containing one EamArtifactInstance.
-                List<CorrelationAttributeInstance> convertedArtifacts = EamArtifactUtil.makeInstancesFromBlackboardArtifact(bbArtifact, true);
+                List<CorrelationAttributeInstance> convertedArtifacts = CorrelationAttributeUtil.makeInstancesFromBlackboardArtifact(bbArtifact, true);
                 for (CorrelationAttributeInstance eamArtifact : convertedArtifacts) {
                     try {
                         // Only do something with this artifact if it's unique within the job
@@ -479,9 +486,11 @@ public class IngestEventsListener {
                                 try {
                                     //only alert to previous instances when they were in another case
                                     List<CorrelationAttributeInstance> previousOccurences = dbManager.getArtifactInstancesByTypeValue(eamArtifact.getCorrelationType(), eamArtifact.getCorrelationValue());
+                                    List<String> caseDisplayNames;
                                     for (CorrelationAttributeInstance instance : previousOccurences) {
                                         if (!instance.getCorrelationCase().getCaseUUID().equals(eamArtifact.getCorrelationCase().getCaseUUID())) {
-                                            makeAndPostPreviousSeenArtifact(bbArtifact);
+                                            caseDisplayNames = dbManager.getListCasesHavingArtifactInstances(eamArtifact.getCorrelationType(), eamArtifact.getCorrelationValue());
+                                            makeAndPostPreviousSeenArtifact(bbArtifact, caseDisplayNames);
                                             break;
                                         }
                                     }
@@ -493,7 +502,7 @@ public class IngestEventsListener {
                                 eamArtifacts.add(eamArtifact);
                             }
                         }
-                    } catch (EamDbException ex) {
+                    } catch (CentralRepoException ex) {
                         LOGGER.log(Level.SEVERE, "Error counting notable artifacts.", ex);
                     }
                 }
@@ -502,7 +511,7 @@ public class IngestEventsListener {
                 for (CorrelationAttributeInstance eamArtifact : eamArtifacts) {
                     try {
                         dbManager.addArtifactInstance(eamArtifact);
-                    } catch (EamDbException ex) {
+                    } catch (CentralRepoException ex) {
                         LOGGER.log(Level.SEVERE, "Error adding artifact to database.", ex); //NON-NLS
                     }
                 }

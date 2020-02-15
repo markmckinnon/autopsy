@@ -1,7 +1,7 @@
 /*
  * Autopsy Forensic Browser
  *
- * Copyright 2011-2019 Basis Technology Corp.
+ * Copyright 2012-2019 Basis Technology Corp.
  * Contact: carrier <at> sleuthkit <dot> org
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Level;
 import javax.swing.Action;
 import org.apache.commons.lang3.tuple.Pair;
@@ -33,6 +34,7 @@ import org.openide.nodes.Sheet;
 import org.openide.util.NbBundle;
 import org.openide.util.NbBundle.Messages;
 import org.sleuthkit.autopsy.casemodule.Case;
+import org.sleuthkit.autopsy.casemodule.DeleteDataSourceAction;
 import org.sleuthkit.autopsy.casemodule.NoCurrentCaseException;
 import org.sleuthkit.autopsy.casemodule.datasourcesummary.ViewSummaryInformationAction;
 import org.sleuthkit.autopsy.centralrepository.datamodel.CorrelationAttributeInstance;
@@ -59,6 +61,7 @@ import org.sleuthkit.datamodel.Tag;
 public class ImageNode extends AbstractContentNode<Image> {
 
     private static final Logger logger = Logger.getLogger(ImageNode.class.getName());
+    private static final Set<IngestManager.IngestModuleEvent> INGEST_MODULE_EVENTS_OF_INTEREST = EnumSet.of(IngestManager.IngestModuleEvent.CONTENT_CHANGED);
 
     /**
      * Helper so that the display name and the name used in building the path
@@ -84,7 +87,7 @@ public class ImageNode extends AbstractContentNode<Image> {
         this.setIconBaseWithExtension("org/sleuthkit/autopsy/images/hard-drive-icon.jpg"); //NON-NLS
 
         // Listen for ingest events so that we can detect new added files (e.g. carved)
-        IngestManager.getInstance().addIngestModuleEventListener(pcl);
+        IngestManager.getInstance().addIngestModuleEventListener(INGEST_MODULE_EVENTS_OF_INTEREST, pcl);
         // Listen for case events so that we can detect when case is closed
         Case.addEventTypeSubscriber(EnumSet.of(Case.Events.CURRENT_CASE), pcl);
     }
@@ -103,7 +106,7 @@ public class ImageNode extends AbstractContentNode<Image> {
      */
     @Override
     @Messages({"ImageNode.action.runIngestMods.text=Run Ingest Modules",
-        "ImageNode.getActions.openFileSearchByAttr.text=Open File Search by Attributes",})
+        "ImageNode.getActions.openFileSearchByAttr.text=Open File Search by Attributes"})
     public Action[] getActions(boolean context) {
 
         List<Action> actionsList = new ArrayList<>();
@@ -111,12 +114,11 @@ public class ImageNode extends AbstractContentNode<Image> {
             actionsList.add(a);
         }
         actionsList.addAll(ExplorerNodeActionVisitor.getActions(content));
-        actionsList.add(new FileSearchAction(
-                Bundle.ImageNode_getActions_openFileSearchByAttr_text()));
+        actionsList.add(new FileSearchAction(Bundle.ImageNode_getActions_openFileSearchByAttr_text()));
         actionsList.add(new ViewSummaryInformationAction(content.getId()));
         actionsList.add(new RunIngestModulesAction(Collections.<Content>singletonList(content)));
-        actionsList.add(new NewWindowViewAction(
-                NbBundle.getMessage(this.getClass(), "ImageNode.getActions.viewInNewWin.text"), this));
+        actionsList.add(new NewWindowViewAction(NbBundle.getMessage(this.getClass(), "ImageNode.getActions.viewInNewWin.text"), this));
+        actionsList.add(new DeleteDataSourceAction(content.getId()));
         return actionsList.toArray(new Action[0]);
     }
 

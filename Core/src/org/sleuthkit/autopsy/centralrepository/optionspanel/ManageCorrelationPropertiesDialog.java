@@ -1,7 +1,7 @@
 /*
  * Central Repository
  *
- * Copyright 2015-2018 Basis Technology Corp.
+ * Copyright 2015-2019 Basis Technology Corp.
  * Contact: carrier <at> sleuthkit <dot> org
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,13 +26,12 @@ import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableModel;
-import org.openide.util.Exceptions;
 import org.openide.util.NbBundle.Messages;
 import org.openide.windows.WindowManager;
 import org.sleuthkit.autopsy.coreutils.Logger;
 import org.sleuthkit.autopsy.centralrepository.datamodel.CorrelationAttributeInstance;
-import org.sleuthkit.autopsy.centralrepository.datamodel.EamDbException;
-import org.sleuthkit.autopsy.centralrepository.datamodel.EamDb;
+import org.sleuthkit.autopsy.centralrepository.datamodel.CentralRepoException;
+import org.sleuthkit.autopsy.centralrepository.datamodel.CentralRepository;
 
 /**
  * Dialog to handle management of artifact types handled by the Central
@@ -70,11 +69,11 @@ final class ManageCorrelationPropertiesDialog extends javax.swing.JDialog {
     private void loadData() {
         DefaultTableModel model = (DefaultTableModel) tbCorrelatableTypes.getModel();
         try {
-            EamDb dbManager = EamDb.getInstance();
+            CentralRepository dbManager = CentralRepository.getInstance();
             correlationTypes.clear();
             correlationTypes.addAll(dbManager.getDefinedCorrelationTypes());
-        } catch (EamDbException ex) {
-            Exceptions.printStackTrace(ex);
+        } catch (CentralRepoException ex) {
+            LOGGER.log(Level.WARNING, "Error loading data", ex);
         }
 
         correlationTypes.forEach((aType) -> {
@@ -244,10 +243,10 @@ final class ManageCorrelationPropertiesDialog extends javax.swing.JDialog {
         if (0 == correlationTypes.size()) {
             dispose();
         } else {
-            EamDb dbManager;
+            CentralRepository dbManager;
             try {
-                dbManager = EamDb.getInstance();
-            } catch (EamDbException ex) {
+                dbManager = CentralRepository.getInstance();
+            } catch (CentralRepoException ex) {
                 LOGGER.log(Level.SEVERE, "Failed to connect to central repository database.", ex);
                 lbWarningMsg.setText(Bundle.ManageCorrelationPropertiesDialog_okbutton_failure());
                 return;
@@ -256,7 +255,7 @@ final class ManageCorrelationPropertiesDialog extends javax.swing.JDialog {
                 try {
                     dbManager.updateCorrelationType(aType);
                     dispose();
-                } catch (EamDbException ex) {
+                } catch (CentralRepoException ex) {
                     LOGGER.log(Level.SEVERE, "Failed to update correlation properties with selections from dialog.", ex); // NON-NLS
                     lbWarningMsg.setText(Bundle.ManageCorrelationPropertiesDialog_okbutton_failure());
                 }

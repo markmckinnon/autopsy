@@ -2,7 +2,7 @@
  *
  * Autopsy Forensic Browser
  *
- * Copyright 2018 Basis Technology Corp.
+ * Copyright 2018-2019 Basis Technology Corp.
  * Contact: carrier <at> sleuthkit <dot> org
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,10 +33,10 @@ import org.netbeans.junit.NbTestCase;
 import org.openide.util.Exceptions;
 import org.sleuthkit.autopsy.casemodule.Case;
 import org.sleuthkit.autopsy.casemodule.ImageDSProcessor;
-import org.sleuthkit.autopsy.centralrepository.datamodel.EamDbException;
-import org.sleuthkit.autopsy.centralrepository.datamodel.EamDbPlatformEnum;
-import org.sleuthkit.autopsy.centralrepository.datamodel.EamDbUtil;
-import org.sleuthkit.autopsy.centralrepository.datamodel.SqliteEamDbSettings;
+import org.sleuthkit.autopsy.centralrepository.datamodel.CentralRepoException;
+import org.sleuthkit.autopsy.centralrepository.datamodel.CentralRepoPlatforms;
+import org.sleuthkit.autopsy.centralrepository.datamodel.CentralRepoDbUtil;
+import org.sleuthkit.autopsy.centralrepository.datamodel.SqliteCentralRepoSettings;
 import org.sleuthkit.autopsy.ingest.IngestJobSettings;
 import org.sleuthkit.autopsy.ingest.IngestJobSettings.IngestType;
 import org.sleuthkit.autopsy.ingest.IngestModuleTemplate;
@@ -46,21 +46,12 @@ import org.sleuthkit.autopsy.testutils.CaseUtils;
 import org.sleuthkit.autopsy.testutils.IngestUtils;
 import org.sleuthkit.datamodel.TskCoreException;
 import junit.framework.Assert;
-import org.sleuthkit.autopsy.casemodule.CaseActionException;
 import org.sleuthkit.autopsy.casemodule.NoCurrentCaseException;
 import org.sleuthkit.autopsy.centralrepository.datamodel.CorrelationAttributeInstance;
 import org.sleuthkit.autopsy.centralrepository.datamodel.CorrelationCase;
-import org.sleuthkit.autopsy.centralrepository.datamodel.EamDb;
-import org.sleuthkit.autopsy.commonpropertiessearch.AbstractCommonAttributeInstance;
-import org.sleuthkit.autopsy.commonpropertiessearch.CaseDBCommonAttributeInstanceNode;
-import org.sleuthkit.autopsy.commonpropertiessearch.CentralRepoCommonAttributeInstance;
-import org.sleuthkit.autopsy.commonpropertiessearch.CentralRepoCommonAttributeInstanceNode;
-import org.sleuthkit.autopsy.commonpropertiessearch.CommonAttributeCountSearchResults;
-import org.sleuthkit.autopsy.datamodel.utils.DataSourceLoader;
-import org.sleuthkit.autopsy.commonpropertiessearch.CommonAttributeValue;
-import org.sleuthkit.autopsy.commonpropertiessearch.CommonAttributeValueList;
 import org.sleuthkit.autopsy.coreutils.TimeStampUtils;
 import org.sleuthkit.autopsy.datamodel.DisplayableItemNode;
+import org.sleuthkit.autopsy.datamodel.utils.DataSourceLoader;
 import org.sleuthkit.autopsy.modules.dataSourceIntegrity.DataSourceIntegrityModuleFactory;
 import org.sleuthkit.autopsy.modules.embeddedfileextractor.EmbeddedFileExtractorModuleFactory;
 import org.sleuthkit.autopsy.modules.exif.ExifParserModuleFactory;
@@ -70,6 +61,7 @@ import org.sleuthkit.autopsy.modules.interestingitems.InterestingItemsIngestModu
 import org.sleuthkit.autopsy.modules.photoreccarver.PhotoRecCarverIngestModuleFactory;
 import org.sleuthkit.autopsy.modules.vmextractor.VMExtractorIngestModuleFactory;
 import org.sleuthkit.datamodel.AbstractFile;
+import org.sleuthkit.autopsy.centralrepository.datamodel.CentralRepository;
 
 /**
  * Utilities for testing intercase correlation feature.
@@ -152,8 +144,6 @@ class InterCaseTestUtils {
     private final IngestJobSettings hashAndNoFileType;
     private final IngestJobSettings kitchenShink;
 
-    private final DataSourceLoader dataSourceLoader;
-
     CorrelationAttributeInstance.Type FILE_TYPE;
     CorrelationAttributeInstance.Type DOMAIN_TYPE;
     CorrelationAttributeInstance.Type USB_ID_TYPE;
@@ -229,8 +219,6 @@ class InterCaseTestUtils {
 
         this.kitchenShink = new IngestJobSettings(InterCaseTestUtils.class.getCanonicalName(), IngestType.ALL_MODULES, kitchenSink);
 
-        this.dataSourceLoader = new DataSourceLoader();
-
         try {
             Collection<CorrelationAttributeInstance.Type> types = CorrelationAttributeInstance.getDefaultCorrelationTypes();
 
@@ -241,7 +229,7 @@ class InterCaseTestUtils {
             EMAIL_TYPE = types.stream().filter(type -> type.getDisplayName().equals("Email Addresses")).findAny().get();
             PHONE_TYPE = types.stream().filter(type -> type.getDisplayName().equals("Phone Numbers")).findAny().get();
 
-        } catch (EamDbException ex) {
+        } catch (CentralRepoException ex) {
             Assert.fail(ex.getMessage());
 
             //none of this really matters but satisfies the compiler
@@ -256,33 +244,31 @@ class InterCaseTestUtils {
     void clearTestDir() {
         if (CENTRAL_REPO_DIRECTORY_PATH.toFile().exists()) {
             try {
-                if (EamDb.isEnabled()) {
-                    EamDb.getInstance().shutdownConnections();
+                if (CentralRepository.isEnabled()) {
+                    CentralRepository.getInstance().shutdownConnections();
                 }
                 FileUtils.deleteDirectory(CENTRAL_REPO_DIRECTORY_PATH.toFile());
-            } catch (IOException | EamDbException ex) {
+            } catch (IOException | CentralRepoExceptionex) {
                 Exceptions.printStackTrace(ex);
                 Assert.fail(ex.getMessage());
             }
         }
     }
-
+    
     Map<Long, String> getDataSourceMap() throws NoCurrentCaseException, TskCoreException, SQLException {
-        return this.dataSourceLoader.getDataSourceMap();
-    }
+        return DataSourceLoader.getAllDataSources();
+    }    
 
-    Map<String, Integer> getCaseMap() throws EamDbException {
+    Map<String, Integer> getCaseMap() throws CentralRepoException {
 
-        if (EamDb.isEnabled()) {
+        if (CentralRepository.isEnabled()) {
             Map<String, Integer> mapOfCaseIdsToCase = new HashMap<>();
             
-            for (CorrelationCase correlationCase : EamDb.getInstance().getCases()) {
+            for (CorrelationCase correlationCase : CentralRepository.getInstance().getCases()) {
                 mapOfCaseIdsToCase.put(correlationCase.getDisplayName(), correlationCase.getID());
             }
-            System.out.println("EAM IS ENABLED");
             return mapOfCaseIdsToCase;
         } else {
-            System.out.println("EAMDB NOT ENABLED");
             //it is reasonable that this might happen...
             //  for example when we test the feature in the absence of an enabled eamdb 
             return new HashMap<>(0);
@@ -301,10 +287,10 @@ class InterCaseTestUtils {
         return this.kitchenShink;
     }
 
-    void enableCentralRepo() throws EamDbException {
+    void enableCentralRepo() throws CentralRepoException {
 
-        EamDbUtil.setUseCentralRepo(true);
-        SqliteEamDbSettings crSettings = new SqliteEamDbSettings();
+        CentralRepoDbUtil.setUseCentralRepo(true);
+        SqliteCentralRepoSettings crSettings = new SqliteCentralRepoSettings();
         crSettings.setDbName(CR_DB_NAME);
         crSettings.setDbDirectory(CENTRAL_REPO_DIRECTORY_PATH.toString());
         if (!crSettings.dbDirectoryExists()) {
@@ -314,8 +300,8 @@ class InterCaseTestUtils {
         crSettings.initializeDatabaseSchema();
         crSettings.insertDefaultDatabaseContent();
         crSettings.saveSettings();
-        EamDbPlatformEnum.setSelectedPlatform(EamDbPlatformEnum.SQLITE.name());
-        EamDbPlatformEnum.saveSelectedPlatform();
+        CentralRepoPlatforms.setSelectedPlatform(CentralRepoPlatforms.SQLITE.name());
+        CentralRepoPlatforms.saveSelectedPlatform();
     }
 
     /**

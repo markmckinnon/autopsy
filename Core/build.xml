@@ -74,6 +74,7 @@
         <copy file="${thirdparty.dir}/stix/StixLib.jar" todir="${ext.dir}" />
         <copy file="${thirdparty.dir}/jdom/jdom-2.0.5.jar" todir="${ext.dir}" />
         <copy file="${thirdparty.dir}/jdom/jdom-2.0.5-contrib.jar" todir="${ext.dir}" />
+		<copy file="${thirdparty.dir}/DatCon/3.6.9/DatCon.jar" todir="${ext.dir}" />
     </target>
     
     
@@ -137,7 +138,7 @@
 
     </target>
 
-    <target name="get-deps" depends="init-ivy,getTSKJars,get-thirdparty-dependencies,get-InternalPythonModules, download-binlist,getTestDataFiles">
+    <target name="get-deps" depends="init-ivy,getTSKJars,get-thirdparty-dependencies,get-InternalPythonModules, download-binlist">
         <mkdir dir="${ext.dir}"/>
         <copy file="${thirdparty.dir}/LICENSE-2.0.txt" todir="${ext.dir}" />        
         <!-- fetch all the dependencies from Ivy and stick them in the right places -->
