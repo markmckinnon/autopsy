@@ -61,6 +61,7 @@ class EvtxViewer extends javax.swing.JPanel implements FileTypeViewer {
     private static final Logger logger = Logger.getLogger(FileViewer.class.getName());
     private final SQLiteTableView selectedTableView = new SQLiteTableView();
     private AbstractFile sqliteDbFile;
+    private static final String LOG_FILE_EXTENSION = "evtx"; //base extension for log files
     
     private String actualFileName;
 
@@ -643,6 +644,18 @@ class EvtxViewer extends javax.swing.JPanel implements FileTypeViewer {
 
     @Override
     public boolean isSupported(AbstractFile file) {
-        return true;
+        if (file == null) {
+            return false;
+        }
+        if (file.getSize() == 0) {
+            return false;
+        }
+
+        if (file.getNameExtension().toLowerCase().startsWith(LOG_FILE_EXTENSION)) {
+            return true;
+        }
+        
+        return false;
+
     }
 }

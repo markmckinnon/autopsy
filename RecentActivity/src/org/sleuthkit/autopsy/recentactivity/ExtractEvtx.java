@@ -110,9 +110,8 @@ final class ExtractEvtx extends Extract {
 
         final String evtxDumper = getPathForEvtxDumper();
         if (evtxDumper == null) {
-//            this.addErrorMessage(Bundle.ExtractEdge_process_errMsg_unableFindESEViewer());
             logger.log(Level.SEVERE, "Error finding export_evtx program"); //NON-NLS
-            return; //If we cannot find the ESEDatabaseView we cannot proceed
+            return; //If we cannot find the export_evtx program so we cannot proceed
         }
 
         if (context.dataSourceIngestIsCancelled()) {
@@ -124,16 +123,17 @@ final class ExtractEvtx extends Extract {
         } finally {
             return;
         }
-//        (new File(tempDirPath)).delete();
     }
 
     /**
-     * Parse the $I file.
+     * Run the Evtx extracting program.
      *
      * For versions of Windows prior to 10, header = 0x01. Windows 10+ header ==
      * 0x02
      *
-     * @param iFilePath
+     * @param evtxExePath path tto the evtx extractor executable.
+     * @param tempDirPath path to the temp directory where the evtx files to be extracted are
+     * @param modDirPath path to the module directory to store output
      *
      * @throws FileNotFoundException
      * @throws IOException
@@ -141,7 +141,6 @@ final class ExtractEvtx extends Extract {
     void extractEvtxFiles(String evtxExePath, String tempDirPath, String modDirPath) throws FileNotFoundException, IOException {
         final Path outputFilePath = Paths.get(modDirPath, EVTX_OUTPUT_FILE_NAME);
         final Path errFilePath = Paths.get(modDirPath, EVTX_ERROR_FILE_NAME);
-
         
         List<String> commandLine = new ArrayList<>();
         commandLine.add(evtxExePath);
