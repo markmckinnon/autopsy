@@ -83,27 +83,27 @@ final class ExtractEvtx extends Extract {
 
         SleuthkitCase skCase = Case.getCurrentCase().getSleuthkitCase();
 
-        List<AbstractFile> iFiles;
+        List<AbstractFile> eFiles;
 
         try {
-            iFiles = fileManager.findFiles(dataSource, "%.evtx"); //NON-NLS            
+            eFiles = fileManager.findFiles(dataSource, "%.evtx"); //NON-NLS            
         } catch (TskCoreException ex) {
-            logger.log(Level.WARNING, "Unable to find recycle bin I files.", ex); //NON-NLS
+            logger.log(Level.WARNING, "Unable to find Event Log evtx files.", ex); //NON-NLS
             return;  // No need to continue
         }
 
-        for (AbstractFile iFile : iFiles) {
+        for (AbstractFile eFile : eFiles) {
 
             if (context.dataSourceIngestIsCancelled()) {
                 return;
             }
 
-            String tempFilePath = tempDirPath + File.separator + iFile.getId() + "_" + iFile.getName();
+            String tempFilePath = tempDirPath + File.separator + eFile.getId() + "_" + eFile.getName();
 
             try {
-                ContentUtils.writeToFile(iFile, new File(tempFilePath));
+                ContentUtils.writeToFile(eFile, new File(tempFilePath));
             } catch (IOException ex) {
-                logger.log(Level.WARNING, String.format("Unable to write %s to temp directory. File name: %s", iFile.getName(), tempFilePath), ex); //NON-NLS
+                logger.log(Level.WARNING, String.format("Unable to write %s to temp directory. File name: %s", eFile.getName(), tempFilePath), ex); //NON-NLS
             }
 
         }

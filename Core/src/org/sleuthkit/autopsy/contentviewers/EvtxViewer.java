@@ -50,13 +50,13 @@ import org.sleuthkit.datamodel.AbstractFile;
 import org.sleuthkit.autopsy.coreutils.SQLiteTableReader;
 
 /**
- * A file content viewer for SQLite database files.
+ * A file content viewer for Windows Evtx files, reads a SQLite db of Eventlogs created by RA Evtx Parser.
  */
 @SuppressWarnings("PMD.SingularField") // UI widgets cause lots of false positives
 class EvtxViewer extends javax.swing.JPanel implements FileTypeViewer {
 
     private static final long serialVersionUID = 1L;
-    public static final String[] SUPPORTED_MIMETYPES = new String[]{"application/event-log"};
+    public static final String[] SUPPORTED_MIMETYPES = new String[]{"application/x.windows-evtx-logs"};
     private static final int ROWS_PER_PAGE = 100;
     private static final Logger logger = Logger.getLogger(FileViewer.class.getName());
     private final SQLiteTableView selectedTableView = new SQLiteTableView();

@@ -326,6 +326,15 @@ final class CustomFileTypesManager {
             signatureList.add(new Signature(byteArray, 0L));
             fileType = new FileType("application/x.windows-registry", signatureList); //NON-NLS
             autopsyDefinedFileTypes.add(fileType);
+            
+            /*
+             * Add type for Windows Event logs
+             */
+            byteArray = DatatypeConverter.parseHexBinary("456C6646696C6500  "); //NON-NLS
+            signatureList.clear();
+            signatureList.add(new Signature(byteArray, 0L));
+            fileType = new FileType("application/x.windows-evtx-logs", signatureList); //NON-NLS
+            autopsyDefinedFileTypes.add(fileType);
 
         } catch (IllegalArgumentException ex) {
             /*
