@@ -266,7 +266,7 @@ class Chromium extends Extract {
         FileManager fileManager = currentCase.getServices().getFileManager();
         List<AbstractFile> bookmarkFiles;
         try {
-            bookmarkFiles = fileManager.findFiles(dataSource, "%Bookmarks%", browserLocation); //NON-NLS
+            bookmarkFiles = fileManager.findFiles(dataSource, "Bookmarks%", browserLocation); //NON-NLS
         } catch (TskCoreException ex) {
             String msg = NbBundle.getMessage(this.getClass(), "Chrome.getBookmark.errMsg.errGettingFiles");
             logger.log(Level.SEVERE, msg, ex);
@@ -287,7 +287,8 @@ class Chromium extends Extract {
             AbstractFile bookmarkFile = bookmarkFiles.get(j++);
             if ((bookmarkFile.getSize() == 0) || (bookmarkFile.getName().toLowerCase().contains("-slack"))
                     || (bookmarkFile.getName().toLowerCase().contains("extras")) || (bookmarkFile.getName().toLowerCase().contains("log"))
-                    || (bookmarkFile.getName().toLowerCase().contains("backup")) || (bookmarkFile.getName().toLowerCase().contains("visualized"))) {
+                    || (bookmarkFile.getName().toLowerCase().contains("backup")) || (bookmarkFile.getName().toLowerCase().contains("visualized"))
+                    || (bookmarkFile.getName().toLowerCase().contains("bak")) || (bookmarkFile.getParentPath().toLowerCase().contains("backup"))) {
                 continue;
             }
             String temps = RAImageIngestModule.getRATempPath(currentCase, browser) + File.separator + bookmarkFile.getName() + j + ".db"; //NON-NLS
