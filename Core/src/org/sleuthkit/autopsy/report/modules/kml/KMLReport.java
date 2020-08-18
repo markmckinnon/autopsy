@@ -35,6 +35,7 @@ import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.Namespace;
@@ -45,13 +46,16 @@ import org.openide.filesystems.FileUtil;
 import org.openide.util.NbBundle.Messages;
 import org.sleuthkit.autopsy.casemodule.NoCurrentCaseException;
 import org.sleuthkit.autopsy.geolocation.datamodel.GeoLocationDataException;
+import org.sleuthkit.autopsy.geolocation.datamodel.GeoLocationParseResult;
 import org.sleuthkit.autopsy.geolocation.datamodel.Waypoint;
 import org.sleuthkit.autopsy.geolocation.datamodel.Route;
 import org.sleuthkit.autopsy.geolocation.datamodel.Track;
 import org.sleuthkit.autopsy.geolocation.datamodel.WaypointBuilder;
+import org.sleuthkit.autopsy.report.GeneralReportSettings;
 import org.sleuthkit.autopsy.report.ReportBranding;
 import org.sleuthkit.autopsy.report.ReportProgressPanel;
 import org.sleuthkit.datamodel.AbstractFile;
+import org.sleuthkit.datamodel.Content;
 import org.sleuthkit.datamodel.ReadContentInputStream;
 import org.sleuthkit.datamodel.ReadContentInputStream.ReadContentInputStreamException;
 import org.sleuthkit.datamodel.SleuthkitCase;
@@ -80,6 +84,8 @@ public final class KMLReport implements GeneralReportModule {
     private Element gpsSearchesFolder;
     private Element gpsTrackpointsFolder;
     private Element gpsTracksFolder;
+    
+    private GeneralReportSettings settings;
 
     private List<Waypoint> waypointList = null;
 
@@ -121,6 +127,8 @@ public final class KMLReport implements GeneralReportModule {
      * @param waypointList
      */
     @Messages({
+        "KMLReport.failedToCompleteReport=Failed to complete report.",
+        "KMLReport.partialFailure=There was an error creating the report.  Some items were not exported.",
         "KMLReport.unableToExtractPhotos=Could not extract photo information.",
         "KMLReport.exifPhotoError=Could not extract photos with EXIF metadata.",
         "KMLReport.bookmarkError=Could not extract Bookmark information.",
@@ -151,17 +159,41 @@ public final class KMLReport implements GeneralReportModule {
 
     public void generateReport(String baseReportDir, ReportProgressPanel progressPanel, List<Waypoint> waypointList) {
         this.waypointList = waypointList;
-        generateReport(baseReportDir, progressPanel);
+        GeneralReportSettings reportSettings = new GeneralReportSettings();
+        reportSettings.setReportDirectoryPath(baseReportDir);
+        generateReport(reportSettings, progressPanel);
     }
-
+    
     @Override
-    public void generateReport(String baseReportDir, ReportProgressPanel progressPanel) {
+    public boolean supportsDataSourceSelection() {
+        return true;
+    }
+    
+    @Override
+    public void generateReport(GeneralReportSettings settings, ReportProgressPanel progressPanel) {
         try {
             currentCase = Case.getCurrentCaseThrows();
         } catch (NoCurrentCaseException ex) {
             logger.log(Level.SEVERE, "Exception while getting open case.", ex); //NON-NLS
             return;
         }
+        
+        if(settings.getSelectedDataSources() == null) {
+            // Process all data sources if the list is null.
+            try {
+                List<Long> selectedDataSources = currentCase.getDataSources()
+                        .stream()
+                        .map(Content::getId)
+                        .collect(Collectors.toList());
+                settings.setSelectedDataSources(selectedDataSources);
+            } catch (TskCoreException ex) {
+                logger.log(Level.SEVERE, "Could not get the datasources from the case", ex);
+                return;
+            }
+        }
+        
+        String baseReportDir = settings.getReportDirectoryPath();
+        this.settings = settings;
         // Start the progress bar and setup the report
         progressPanel.setIndeterminate(true);
         progressPanel.start();
@@ -179,10 +211,15 @@ public final class KMLReport implements GeneralReportModule {
 
         try {
             makeRoutes(skCase);
-            makeTracks(skCase);
+            boolean entirelySuccessful = makeTracks(skCase);
+            if (!entirelySuccessful) {
+                result = ReportProgressPanel.ReportStatus.ERROR;
+                errorMessage = Bundle.KMLReport_partialFailure();
+            }
+            
             addLocationsToReport(skCase, baseReportDir);
-        } catch (GeoLocationDataException | IOException ex) {
-            errorMessage = "Failed to complete report.";
+        } catch (GeoLocationDataException | IOException | TskCoreException ex) {
+            errorMessage = Bundle.KMLReport_failedToCompleteReport();
             logger.log(Level.SEVERE, errorMessage, ex); //NON-NLS
             result = ReportProgressPanel.ReportStatus.ERROR;
         }
@@ -318,8 +355,12 @@ public final class KMLReport implements GeneralReportModule {
      *
      * @throws IOException
      */
-    void addExifMetadataContent(List<Waypoint> points, String baseReportDirectory) throws IOException {
+    void addExifMetadataContent(List<Waypoint> points, String baseReportDirectory) throws IOException, TskCoreException {
         for (Waypoint point : points) {
+            if(shouldFilterFromReport(point.getArtifact())) {
+                continue;
+            }
+            
             Element mapPoint = makePoint(point);
             if (mapPoint == null) {
                 return;
@@ -352,7 +393,7 @@ public final class KMLReport implements GeneralReportModule {
      * @throws TskCoreException
      * @throws IOException
      */
-    void addLocationsToReport(SleuthkitCase skCase, String baseReportDir) throws GeoLocationDataException, IOException {
+    void addLocationsToReport(SleuthkitCase skCase, String baseReportDir) throws GeoLocationDataException, IOException, TskCoreException {
         if (waypointList == null) {
             addExifMetadataContent(WaypointBuilder.getEXIFWaypoints(skCase), baseReportDir);
             addWaypoints(WaypointBuilder.getBookmarkWaypoints(skCase), gpsBookmarksFolder, FeatureColor.BLUE, Bundle.Waypoint_Bookmark_Display_String());
@@ -376,8 +417,11 @@ public final class KMLReport implements GeneralReportModule {
      * @param folder        The Element folder to add the points to
      * @param waypointColor The color the waypoint should appear in the report
      */
-    void addWaypoints(List<Waypoint> points, Element folder, FeatureColor waypointColor, String headerLabel) {
+    void addWaypoints(List<Waypoint> points, Element folder, FeatureColor waypointColor, String headerLabel) throws TskCoreException {
         for (Waypoint point : points) {
+            if(shouldFilterFromReport(point.getArtifact())) {
+                continue;
+            }
             addContent(folder, point.getLabel(), waypointColor, getFormattedDetails(point, headerLabel), point.getTimestamp(), makePoint(point), point.getLatitude(), point.getLongitude());
         }
     }
@@ -408,7 +452,7 @@ public final class KMLReport implements GeneralReportModule {
      *
      * @throws TskCoreException
      */
-    void makeRoutes(SleuthkitCase skCase) throws GeoLocationDataException {
+    void makeRoutes(SleuthkitCase skCase) throws GeoLocationDataException, TskCoreException {
         List<Route> routes = null;
 
         if (waypointList == null) {
@@ -418,7 +462,10 @@ public final class KMLReport implements GeneralReportModule {
         }
 
         for (Route route : routes) {
-            addRouteToReport(route);
+            if(shouldFilterFromReport(route.getArtifact())) {
+                continue;
+            }
+            addRouteToReport(route);   
         }
     }
 
@@ -476,21 +523,30 @@ public final class KMLReport implements GeneralReportModule {
      * Add the track to the track folder in the document.
      *
      * @param skCase Currently open case.
-     *
+     * @return The operation was entirely successful.
+     * 
      * @throws TskCoreException
      */
-    void makeTracks(SleuthkitCase skCase) throws GeoLocationDataException {
+    boolean makeTracks(SleuthkitCase skCase) throws GeoLocationDataException, TskCoreException {
         List<Track> tracks = null;
-
+        boolean successful = true;
+        
         if (waypointList == null) {
-            tracks = Track.getTracks(skCase, null);
+            GeoLocationParseResult<Track> result = Track.getTracks(skCase, null);
+            tracks = result.getItems();
+            successful = result.isSuccessfullyParsed();
         } else {
             tracks = WaypointBuilder.getTracks(waypointList);
         }
 
         for (Track track : tracks) {
+            if(shouldFilterFromReport(track.getArtifact())) {
+                continue;
+            }
             addTrackToReport(track);
         }
+        
+        return successful;
     }
 
     /**
@@ -876,5 +932,16 @@ public final class KMLReport implements GeneralReportModule {
         }
 
         return String.format("%.2f, %.2f", latitude, longitude);
+    }
+    
+    /**
+     * Indicates if the content should be filtered from the report.
+     */
+    private boolean shouldFilterFromReport(Content content) throws TskCoreException {
+        if(this.settings.getSelectedDataSources() == null) {
+            return false;
+        }
+        long dataSourceId = content.getDataSource().getId();
+        return !this.settings.getSelectedDataSources().contains(dataSourceId);
     }
 }

@@ -1,7 +1,7 @@
 /*
  * Autopsy Forensic Browser
  *
- * Copyright 2012-2019 Basis Technology Corp.
+ * Copyright 2012-2020 Basis Technology Corp.
  * Contact: carrier <at> sleuthkit <dot> org
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -151,6 +151,7 @@ final class ReportVisualPanel1 extends JPanel implements ListSelectionListener {
         }
 
         modulesJList.getSelectionModel().addListSelectionListener(this);
+        modulesJList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         modulesJList.setCellRenderer(new ModuleCellRenderer());
         modulesJList.setListData(modules.toArray(new ReportModule[modules.size()]));
         modulesJList.setSelectedIndex(selectedIndex);
@@ -368,8 +369,10 @@ final class ReportVisualPanel1 extends JPanel implements ListSelectionListener {
         configurationPanel.revalidate();
         configurationPanel.repaint();
 
-        boolean generalModuleSelected = (module instanceof GeneralReportModule);
-
+        // General modules that support data source selection will be presented
+        // a data source selection panel, so they should not be finished immediately.
+        boolean generalModuleSelected = (module instanceof GeneralReportModule) && !((GeneralReportModule)module).supportsDataSourceSelection();
+        
         wizPanel.setNext(!generalModuleSelected);
         wizPanel.setFinish(generalModuleSelected);
     }

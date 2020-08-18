@@ -22,10 +22,12 @@ package org.sleuthkit.autopsy.geolocation.datamodel;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Level;
 import org.sleuthkit.autopsy.coreutils.Logger;
 import org.sleuthkit.datamodel.BlackboardArtifact;
+import org.sleuthkit.datamodel.BlackboardArtifact.ARTIFACT_TYPE;
 import org.sleuthkit.datamodel.CaseDbAccessManager;
 import org.sleuthkit.datamodel.BlackboardAttribute;
 import org.sleuthkit.datamodel.SleuthkitCase;
@@ -40,38 +42,48 @@ public final class WaypointBuilder {
 
     private static final Logger logger = Logger.getLogger(WaypointBuilder.class.getName());
 
-    // SELECT statement for getting a list of waypoints.  
-    final static String GEO_ARTIFACT_QUERY
+    private final static String TIME_TYPE_IDS = String.format("%d, %d",
+            BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DATETIME.getTypeID(),
+            BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DATETIME_CREATED.getTypeID());
+
+    private final static String GEO_ATTRIBUTE_TYPE_IDS = String.format("%d, %d, %d",
+            BlackboardAttribute.ATTRIBUTE_TYPE.TSK_GEO_LATITUDE.getTypeID(),
+            BlackboardAttribute.ATTRIBUTE_TYPE.TSK_GEO_LATITUDE_START.getTypeID(),
+            BlackboardAttribute.ATTRIBUTE_TYPE.TSK_GEO_WAYPOINTS.getTypeID());
+
+    // SELECT statement for getting a list of waypoints where %s is a comma separated list
+    // of attribute type ids.
+    private final static String GEO_ARTIFACT_QUERY
             = "SELECT artifact_id, artifact_type_id "
             + "FROM blackboard_attributes "
-            + "WHERE attribute_type_id IN (%d, %d) ";  //NON-NLS
+            + "WHERE attribute_type_id IN (%s) ";  //NON-NLS
 
     // SELECT statement to get only artifact_ids
-    final static String GEO_ARTIFACT_QUERY_ID_ONLY
+    private final static String GEO_ARTIFACT_QUERY_ID_ONLY
             = "SELECT artifact_id "
             + "FROM blackboard_attributes "
-            + "WHERE attribute_type_id IN (%d, %d) ";  //NON-NLS
+            + "WHERE attribute_type_id IN (%s) ";  //NON-NLS
 
     // This Query will return a list of waypoint artifacts
-    final static String GEO_ARTIFACT_WITH_DATA_SOURCES_QUERY
+    private final static String GEO_ARTIFACT_WITH_DATA_SOURCES_QUERY
             = "SELECT blackboard_attributes.artifact_id "
             + "FROM blackboard_attributes, blackboard_artifacts "
             + "WHERE blackboard_attributes.artifact_id = blackboard_artifacts.artifact_id "
-            + "AND blackboard_attributes.attribute_type_id IN(%d, %d) "
+            + "AND blackboard_attributes.attribute_type_id IN(%s) "
             + "AND data_source_obj_id IN (%s)"; //NON-NLS
 
     // Select will return the "most recent" timestamp from all waypoings
-    final static String MOST_RECENT_TIME
+    private final static String MOST_RECENT_TIME
             = "SELECT MAX(value_int64) - (%d * 86400)" //86400 is the number of seconds in a day.
             + "FROM blackboard_attributes "
-            + "WHERE attribute_type_id IN(%d, %d) "
+            + "WHERE attribute_type_id IN(%s) "
             + "AND artifact_id "
             + "IN ( "
             + "%s" //GEO_ARTIFACT with or without data source
             + " )";
 
     // Returns a list of artifacts with no time stamp
-    final static String SELECT_WO_TIMESTAMP
+    private final static String SELECT_WO_TIMESTAMP
             = "SELECT DISTINCT artifact_id, artifact_type_id "
             + "FROM blackboard_attributes "
             + "WHERE artifact_id NOT IN (%s) "
@@ -85,9 +97,10 @@ public final class WaypointBuilder {
         /**
          * This function will be called after the waypoints have been filtered.
          *
-         * @param wwaypoints This of waypoints.
+         * @param waypoints The list of waypoints and whether they were all
+         *                  successfully parsed.
          */
-        void process(List<Waypoint> wwaypoints);
+        void process(GeoLocationParseResult<Waypoint> waypoints);
     }
 
     /**
@@ -132,7 +145,7 @@ public final class WaypointBuilder {
     public static List<Route> getRoutes(List<Waypoint> waypoints) {
         List<Route> routeList = new ArrayList<>();
         for (Waypoint point : waypoints) {
-            GeoPath path = point.getPath();
+            GeoPath path = point.getParentGeoPath();
             if (path instanceof Route) {
                 Route route = (Route) path;
                 if (!routeList.contains(route)) {
@@ -154,7 +167,7 @@ public final class WaypointBuilder {
     public static List<Track> getTracks(List<Waypoint> waypoints) {
         List<Track> trackList = new ArrayList<>();
         for (Waypoint point : waypoints) {
-            GeoPath path = point.getPath();
+            GeoPath path = point.getParentGeoPath();
             if (path instanceof Track) {
                 Track route = (Track) path;
                 if (!trackList.contains(route)) {
@@ -179,7 +192,7 @@ public final class WaypointBuilder {
     public static List<Waypoint> getTrackpointWaypoints(SleuthkitCase skCase) throws GeoLocationDataException {
         List<BlackboardArtifact> artifacts = null;
         try {
-            artifacts = skCase.getBlackboardArtifacts(BlackboardArtifact.ARTIFACT_TYPE.TSK_GPS_TRACKPOINT);
+            artifacts = skCase.getBlackboardArtifacts(ARTIFACT_TYPE.TSK_GPS_TRACKPOINT);
         } catch (TskCoreException ex) {
             throw new GeoLocationDataException("Unable to get artifacts for type: TSK_GPS_TRACKPOINT", ex);//NON-NLS
         }
@@ -227,7 +240,7 @@ public final class WaypointBuilder {
     static public List<Waypoint> getEXIFWaypoints(SleuthkitCase skCase) throws GeoLocationDataException {
         List<BlackboardArtifact> artifacts = null;
         try {
-            artifacts = skCase.getBlackboardArtifacts(BlackboardArtifact.ARTIFACT_TYPE.TSK_METADATA_EXIF);
+            artifacts = skCase.getBlackboardArtifacts(ARTIFACT_TYPE.TSK_METADATA_EXIF);
         } catch (TskCoreException ex) {
             throw new GeoLocationDataException("Unable to get artifacts for type: TSK_GPS_LAST_KNOWN_LOCATION", ex);//NON-NLS
         }
@@ -279,7 +292,7 @@ public final class WaypointBuilder {
     public static List<Waypoint> getSearchWaypoints(SleuthkitCase skCase) throws GeoLocationDataException {
         List<BlackboardArtifact> artifacts = null;
         try {
-            artifacts = skCase.getBlackboardArtifacts(BlackboardArtifact.ARTIFACT_TYPE.TSK_GPS_SEARCH);
+            artifacts = skCase.getBlackboardArtifacts(ARTIFACT_TYPE.TSK_GPS_SEARCH);
         } catch (TskCoreException ex) {
             throw new GeoLocationDataException("Unable to get artifacts for type: TSK_GPS_SEARCH", ex);//NON-NLS
         }
@@ -329,7 +342,7 @@ public final class WaypointBuilder {
     public static List<Waypoint> getLastKnownWaypoints(SleuthkitCase skCase) throws GeoLocationDataException {
         List<BlackboardArtifact> artifacts = null;
         try {
-            artifacts = skCase.getBlackboardArtifacts(BlackboardArtifact.ARTIFACT_TYPE.TSK_GPS_LAST_KNOWN_LOCATION);
+            artifacts = skCase.getBlackboardArtifacts(ARTIFACT_TYPE.TSK_GPS_LAST_KNOWN_LOCATION);
         } catch (TskCoreException ex) {
             throw new GeoLocationDataException("Unable to get artifacts for type: TSK_GPS_LAST_KNOWN_LOCATION", ex);//NON-NLS
         }
@@ -380,7 +393,7 @@ public final class WaypointBuilder {
     public static List<Waypoint> getBookmarkWaypoints(SleuthkitCase skCase) throws GeoLocationDataException {
         List<BlackboardArtifact> artifacts = null;
         try {
-            artifacts = skCase.getBlackboardArtifacts(BlackboardArtifact.ARTIFACT_TYPE.TSK_GPS_BOOKMARK);
+            artifacts = skCase.getBlackboardArtifacts(ARTIFACT_TYPE.TSK_GPS_BOOKMARK);
         } catch (TskCoreException ex) {
             throw new GeoLocationDataException("Unable to get artifacts for type: TSK_GPS_BOOKMARK", ex);//NON-NLS
         }
@@ -434,6 +447,9 @@ public final class WaypointBuilder {
      *                          Pass a null or empty list to show way points for
      *                          all dataSources.
      *
+     * @param artifactTypes     List of types from which we want to get
+     *                          waypoints.
+     *
      * @param showAll           True to get all waypoints.
      *
      * @param cntDaysFromRecent Number of days from the most recent time stamp
@@ -449,7 +465,7 @@ public final class WaypointBuilder {
      *
      * @throws GeoLocationDataException
      */
-    static public void getAllWaypoints(SleuthkitCase skCase, List<DataSource> dataSources, boolean showAll, int cntDaysFromRecent, boolean noTimeStamp, WaypointFilterQueryCallBack queryCallBack) throws GeoLocationDataException {
+    static public void getAllWaypoints(SleuthkitCase skCase, List<DataSource> dataSources, List<ARTIFACT_TYPE> artifactTypes, boolean showAll, int cntDaysFromRecent, boolean noTimeStamp, WaypointFilterQueryCallBack queryCallBack) throws GeoLocationDataException {
         String query = buildQuery(dataSources, showAll, cntDaysFromRecent, noTimeStamp);
 
         logger.log(Level.INFO, query);
@@ -464,19 +480,21 @@ public final class WaypointBuilder {
             skCase.getCaseDbAccessManager().select(query, new CaseDbAccessManager.CaseDbAccessQueryCallback() {
                 @Override
                 public void process(ResultSet rs) {
-                    List<Waypoint> waypoints = new ArrayList<>();
+                    GeoLocationParseResult<Waypoint> waypointResults = new GeoLocationParseResult<>();
                     try {
                         while (rs.next()) {
                             int artifact_type_id = rs.getInt("artifact_type_id"); //NON-NLS
                             long artifact_id = rs.getLong("artifact_id"); //NON-NLS
 
-                            BlackboardArtifact.ARTIFACT_TYPE type = BlackboardArtifact.ARTIFACT_TYPE.fromID(artifact_type_id);
-
-                            waypoints.addAll(getWaypointForArtifact(skCase.getBlackboardArtifact(artifact_id), type));
+                            ARTIFACT_TYPE type = ARTIFACT_TYPE.fromID(artifact_type_id);
+                            if (artifactTypes.contains(type)) {
+                                waypointResults.add(getWaypointForArtifact(skCase.getBlackboardArtifact(artifact_id), type));
+                            }
 
                         }
-                        queryCallBack.process(waypoints);
-                    } catch (GeoLocationDataException | SQLException | TskCoreException ex) {
+
+                        queryCallBack.process(waypointResults);
+                    } catch (SQLException | TskCoreException ex) {
                         logger.log(Level.WARNING, "Failed to filter waypoint.", ex); //NON-NLS
                     }
 
@@ -507,9 +525,7 @@ public final class WaypointBuilder {
 //            FROM blackboard_attributes
 //            WHERE attribute_type_id IN (%d, %d)
         return String.format(SELECT_WO_TIMESTAMP,
-                String.format(GEO_ARTIFACT_QUERY_ID_ONLY,
-                        BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DATETIME.getTypeID(),
-                        BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DATETIME_CREATED.getTypeID()),
+                String.format(GEO_ARTIFACT_QUERY_ID_ONLY, TIME_TYPE_IDS),
                 getWaypointListQuery(dataSources));
     }
 
@@ -542,15 +558,13 @@ public final class WaypointBuilder {
 //          MOST_RECENT_TIME
 //              SELECT MAX(value_int64) - (%d * 86400)
 //              FROM blackboard_attributes
-//              WHERE attribute_type_id IN(%d, %d)
+//              WHERE attribute_type_id IN(%s)
 //              AND artifact_id
 //              IN ( %s )
 //       
             mostRecentQuery = String.format("AND value_int64 > (%s)", //NON-NLS           
                     String.format(MOST_RECENT_TIME,
-                            cntDaysFromRecent,
-                            BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DATETIME.getTypeID(),
-                            BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DATETIME_CREATED.getTypeID(),
+                            cntDaysFromRecent, TIME_TYPE_IDS,
                             getWaypointListQuery(dataSources)
                     ));
         }
@@ -558,10 +572,8 @@ public final class WaypointBuilder {
 //      GEO_ARTIFACT_QUERY
 //          SELECT artifact_id, artifact_type_id
 //          FROM blackboard_attributes
-//          WHERE attribute_type_id IN (%d, %d)
-        String query = String.format(GEO_ARTIFACT_QUERY,
-                BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DATETIME.getTypeID(),
-                BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DATETIME_CREATED.getTypeID());
+//          WHERE attribute_type_id IN (%s)
+        String query = String.format(GEO_ARTIFACT_QUERY, TIME_TYPE_IDS);
 
         // That are in the list of artifacts for the given data Sources
         query += String.format("AND artifact_id IN(%s)", getWaypointListQuery(dataSources)); //NON-NLS
@@ -592,10 +604,8 @@ public final class WaypointBuilder {
 //      GEO_ARTIFACT_QUERY
 //          SELECT artifact_id, artifact_type_id
 //          FROM blackboard_attributes
-//          WHERE attribute_type_id IN (%d, %d)
-            return String.format(GEO_ARTIFACT_QUERY,
-                    BlackboardAttribute.ATTRIBUTE_TYPE.TSK_GEO_LATITUDE.getTypeID(),
-                    BlackboardAttribute.ATTRIBUTE_TYPE.TSK_GEO_LATITUDE_START.getTypeID());
+//          WHERE attribute_type_id IN (%s)
+            return String.format(GEO_ARTIFACT_QUERY, GEO_ATTRIBUTE_TYPE_IDS);
         }
 
         String dataSourceList = "";
@@ -608,10 +618,53 @@ public final class WaypointBuilder {
             dataSourceList = dataSourceList.substring(0, dataSourceList.length() - 1);
         }
 
-        return String.format(GEO_ARTIFACT_WITH_DATA_SOURCES_QUERY,
-                BlackboardAttribute.ATTRIBUTE_TYPE.TSK_GEO_LATITUDE.getTypeID(),
-                BlackboardAttribute.ATTRIBUTE_TYPE.TSK_GEO_LATITUDE_START.getTypeID(),
+        return String.format(GEO_ARTIFACT_WITH_DATA_SOURCES_QUERY, GEO_ATTRIBUTE_TYPE_IDS,
                 dataSourceList);
+    }
+
+    /**
+     * A parser that could throw a GeoLocationDataException when there is a
+     * parse issue.
+     *
+     * @param <T> The return type.
+     */
+    private interface ParserWithError<T> {
+
+        T parse(BlackboardArtifact artifact) throws GeoLocationDataException;
+    }
+
+    /**
+     * Parses one waypoint.
+     *
+     * @param parser   The parser to use.
+     * @param artifact The artifact to be parsed.
+     *
+     * @return Returns a parse result that is either successful with a parsed
+     *         waypoint or unsuccessful with an exception.
+     */
+    private static GeoLocationParseResult<Waypoint> parseWaypoint(ParserWithError<Waypoint> parser, BlackboardArtifact artifact) {
+        try {
+            return new GeoLocationParseResult<>(Arrays.asList(parser.parse(artifact)), true);
+        } catch (GeoLocationDataException ex) {
+            return new GeoLocationParseResult<>(null, false);
+        }
+    }
+
+    /**
+     * Parses a list of waypoints.
+     *
+     * @param parser   The parser to use.
+     * @param artifact The artifact to be parsed.
+     *
+     * @return Returns a parse result that is either successful with a parsed
+     *         waypoint or unsuccessful with an exception.
+     */
+    private static GeoLocationParseResult<Waypoint> parseWaypoints(ParserWithError<List<Waypoint>> parser, BlackboardArtifact artifact) {
+        try {
+            return new GeoLocationParseResult<>(parser.parse(artifact), true);
+        } catch (GeoLocationDataException ignored) {
+            return new GeoLocationParseResult<>(null, false);
+        }
     }
 
     /**
@@ -621,37 +674,33 @@ public final class WaypointBuilder {
      * @param type     The type of artifact
      *
      * @return A new waypoint object
-     *
-     * @throws GeoLocationDataException
      */
-    static private List<Waypoint> getWaypointForArtifact(BlackboardArtifact artifact, BlackboardArtifact.ARTIFACT_TYPE type) throws GeoLocationDataException {
-        List<Waypoint> waypoints = new ArrayList<>();
+    private static GeoLocationParseResult<Waypoint> getWaypointForArtifact(BlackboardArtifact artifact, ARTIFACT_TYPE type) {
+        GeoLocationParseResult<Waypoint> waypoints = new GeoLocationParseResult<>();
         switch (type) {
             case TSK_METADATA_EXIF:
-                waypoints.add(new EXIFWaypoint(artifact));
+                waypoints.add(parseWaypoint(EXIFWaypoint::new, artifact));
                 break;
             case TSK_GPS_BOOKMARK:
-                waypoints.add(new BookmarkWaypoint(artifact));
+                waypoints.add(parseWaypoint(BookmarkWaypoint::new, artifact));
                 break;
             case TSK_GPS_TRACKPOINT:
-                waypoints.add(new TrackpointWaypoint(artifact));
+                waypoints.add(parseWaypoint(TrackpointWaypoint::new, artifact));
                 break;
             case TSK_GPS_SEARCH:
-                waypoints.add(new SearchWaypoint(artifact));
+                waypoints.add(parseWaypoint(SearchWaypoint::new, artifact));
                 break;
             case TSK_GPS_ROUTE:
-                Route route = new Route(artifact);
-                waypoints.addAll(route.getRoute());
+                waypoints.add(parseWaypoints((a) -> new Route(a).getRoute(), artifact));
                 break;
             case TSK_GPS_LAST_KNOWN_LOCATION:
-                waypoints.add(new LastKnownWaypoint(artifact));
+                waypoints.add(parseWaypoint(LastKnownWaypoint::new, artifact));
                 break;
             case TSK_GPS_TRACK:
-                Track track = new Track(artifact);
-                waypoints.addAll(track.getPath());
+                waypoints.add(parseWaypoints((a) -> new Track(a).getPath(), artifact));
                 break;
             default:
-                waypoints.add(new CustomArtifactWaypoint(artifact));
+                waypoints.add(parseWaypoint(CustomArtifactWaypoint::new, artifact));
         }
 
         return waypoints;

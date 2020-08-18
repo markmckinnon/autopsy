@@ -166,7 +166,6 @@ public final class GeolocationTopComponent extends TopComponent {
                             Bundle.GLTopComponent_No_dataSource_message(),
                             Bundle.GLTopComponent_No_dataSource_Title(),
                             JOptionPane.ERROR_MESSAGE);
-
                 }
             }
 
@@ -290,7 +289,7 @@ public final class GeolocationTopComponent extends TopComponent {
             filters = geoFilterPanel.getFilterState();
         } catch (GeoLocationUIException ex) {
             JOptionPane.showMessageDialog(this,
-                    Bundle.GeoTopComponent_filer_data_invalid_msg(),
+                    ex.getMessage(),
                     Bundle.GeoTopComponent_filer_data_invalid_Title(),
                     JOptionPane.INFORMATION_MESSAGE);
             return;
@@ -331,7 +330,7 @@ public final class GeolocationTopComponent extends TopComponent {
      *
      * @param waypointList
      */
-    void addWaypointsToMap(Set<MapWaypoint> waypointList) {
+    void addWaypointsToMap(Set<MapWaypoint> waypointList, List<Set<MapWaypoint>> tracks) {
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
@@ -348,6 +347,8 @@ public final class GeolocationTopComponent extends TopComponent {
                 }
                 mapPanel.clearWaypoints();
                 mapPanel.setWaypoints(waypointList);
+                mapPanel.setTracks(tracks);
+                mapPanel.initializePainter();
                 setWaypointLoading(false);
                 geoFilterPanel.setEnabled(true);
             }
@@ -493,6 +494,10 @@ public final class GeolocationTopComponent extends TopComponent {
      *  Extends AbstractWaypointFetcher to handle the returning of
      *  the filters set of MapWaypoints.
      */
+    @Messages({
+        "GeolocationTopComponent.WaypointFetcher.onErrorTitle=Error gathering GPS Track Data",
+        "GeolocationTopComponent.WaypointFetcher.onErrorDescription=There was an error gathering some GPS Track Data.  Some results have been excluded."
+    })
     final private class WaypointFetcher extends AbstractWaypointFetcher {
 
         WaypointFetcher(GeoFilter filters) {
@@ -500,8 +505,16 @@ public final class GeolocationTopComponent extends TopComponent {
         }
 
         @Override
-        void handleFilteredWaypointSet(Set<MapWaypoint> mapWaypoints) {
-            addWaypointsToMap(mapWaypoints);
+        void handleFilteredWaypointSet(Set<MapWaypoint> mapWaypoints, List<Set<MapWaypoint>> tracks, boolean wasEntirelySuccessful) {
+            addWaypointsToMap(mapWaypoints, tracks);
+            
+            // if there is an error, present to the user.
+            if (!wasEntirelySuccessful) {
+                JOptionPane.showMessageDialog(GeolocationTopComponent.this, 
+                    Bundle.GeolocationTopComponent_WaypointFetcher_onErrorDescription(), 
+                    Bundle.GeolocationTopComponent_WaypointFetcher_onErrorTitle(),
+                    JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 }

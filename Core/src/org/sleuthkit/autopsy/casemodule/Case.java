@@ -1,7 +1,7 @@
 /*
  * Autopsy Forensic Browser
  *
- * Copyright 2012-2019 Basis Technology Corp.
+ * Copyright 2012-2020 Basis Technology Corp.
  * Contact: carrier <at> sleuthkit <dot> org
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,6 +21,7 @@ package org.sleuthkit.autopsy.casemodule;
 import org.sleuthkit.autopsy.featureaccess.FeatureAccessUtils;
 import com.google.common.annotations.Beta;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.sleuthkit.autopsy.casemodule.multiusercases.CaseNodeData;
 import java.awt.Frame;
 import java.awt.event.ActionEvent;
@@ -106,7 +107,7 @@ import org.sleuthkit.autopsy.coreutils.Version;
 import org.sleuthkit.autopsy.events.AutopsyEvent;
 import org.sleuthkit.autopsy.events.AutopsyEventException;
 import org.sleuthkit.autopsy.events.AutopsyEventPublisher;
-import org.sleuthkit.autopsy.filequery.OpenFileDiscoveryAction;
+import org.sleuthkit.autopsy.discovery.OpenDiscoveryAction;
 import org.sleuthkit.autopsy.ingest.IngestJob;
 import org.sleuthkit.autopsy.ingest.IngestManager;
 import org.sleuthkit.autopsy.ingest.IngestServices;
@@ -125,6 +126,7 @@ import org.sleuthkit.datamodel.CaseDbConnectionInfo;
 import org.sleuthkit.datamodel.Content;
 import org.sleuthkit.datamodel.ContentTag;
 import org.sleuthkit.datamodel.DataSource;
+import org.sleuthkit.datamodel.FileSystem;
 import org.sleuthkit.datamodel.Image;
 import org.sleuthkit.datamodel.Report;
 import org.sleuthkit.datamodel.SleuthkitCase;
@@ -156,6 +158,9 @@ public class Case {
     private static final Logger logger = Logger.getLogger(Case.class.getName());
     private static final AutopsyEventPublisher eventPublisher = new AutopsyEventPublisher();
     private static final Object caseActionSerializationLock = new Object();
+    private static Future<?> backgroundOpenFileSystemsFuture = null;
+    private static final ExecutorService openFileSystemsExecutor
+            = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder().setNameFormat("case-open-file-systems-%d").build());
     private static volatile Frame mainFrame;
     private static volatile Case currentCase;
     private final CaseMetadata metadata;
@@ -1114,12 +1119,12 @@ public class Case {
                 CallableSystemAction.get(CaseCloseAction.class).setEnabled(true);
                 CallableSystemAction.get(CaseDetailsAction.class).setEnabled(true);
                 CallableSystemAction.get(DataSourceSummaryAction.class).setEnabled(true);
-                CallableSystemAction.get(CaseDeleteAction.class).setEnabled(true);
+                CallableSystemAction.get(CaseDeleteAction.class).setEnabled(FeatureAccessUtils.canDeleteCurrentCase());
                 CallableSystemAction.get(OpenTimelineAction.class).setEnabled(true);
                 CallableSystemAction.get(OpenCommVisualizationToolAction.class).setEnabled(true);
                 CallableSystemAction.get(CommonAttributeSearchAction.class).setEnabled(true);
                 CallableSystemAction.get(OpenOutputFolderAction.class).setEnabled(false);
-                CallableSystemAction.get(OpenFileDiscoveryAction.class).setEnabled(true);
+                CallableSystemAction.get(OpenDiscoveryAction.class).setEnabled(true);
 
                 /*
                  * Add the case to the recent cases tracker that supplies a list
@@ -1174,7 +1179,7 @@ public class Case {
                 CallableSystemAction.get(OpenCommVisualizationToolAction.class).setEnabled(false);
                 CallableSystemAction.get(OpenOutputFolderAction.class).setEnabled(false);
                 CallableSystemAction.get(CommonAttributeSearchAction.class).setEnabled(false);
-                CallableSystemAction.get(OpenFileDiscoveryAction.class).setEnabled(false);
+                CallableSystemAction.get(OpenDiscoveryAction.class).setEnabled(false);
 
                 /*
                  * Clear the notifications in the notfier component in the lower
@@ -1550,7 +1555,20 @@ public class Case {
      * @param newTag new ContentTag added
      */
     public void notifyContentTagAdded(ContentTag newTag) {
-        eventPublisher.publish(new ContentTagAddedEvent(newTag));
+        notifyContentTagAdded(newTag, null);
+    }
+
+    /**
+     * Notifies case event subscribers that a content tag has been added.
+     *
+     * This should not be called from the event dispatch thread (EDT)
+     *
+     * @param newTag            The added ContentTag.
+     * @param deletedTagList    List of ContentTags that were removed as a result 
+     *                          of the addition of newTag.
+     */
+    public void notifyContentTagAdded(ContentTag newTag, List<ContentTag> deletedTagList) {
+        eventPublisher.publish(new ContentTagAddedEvent(newTag, deletedTagList));
     }
 
     /**
@@ -1602,7 +1620,20 @@ public class Case {
      * @param newTag new BlackboardArtifactTag added
      */
     public void notifyBlackBoardArtifactTagAdded(BlackboardArtifactTag newTag) {
-        eventPublisher.publish(new BlackBoardArtifactTagAddedEvent(newTag));
+        notifyBlackBoardArtifactTagAdded(newTag, null);
+    }
+
+    /**
+     * Notifies case event subscribers that an artifact tag has been added.
+     *
+     * This should not be called from the event dispatch thread (EDT)
+     *
+     * @param newTag            The added ContentTag.
+     * @param removedTagList    List of ContentTags that were removed as a result 
+     *                          of the addition of newTag.
+     */
+    public void notifyBlackBoardArtifactTagAdded(BlackboardArtifactTag newTag, List<BlackboardArtifactTag> removedTagList) {
+        eventPublisher.publish(new BlackBoardArtifactTagAddedEvent(newTag, removedTagList));
     }
 
     /**
@@ -1927,7 +1958,7 @@ public class Case {
             checkForCancellation();
             openCaseLevelServices(progressIndicator);
             checkForCancellation();
-            openAppServiceCaseResources(progressIndicator);
+            openAppServiceCaseResources(progressIndicator, true);
             checkForCancellation();
             openCommunicationChannels(progressIndicator);
             return null;
@@ -1976,9 +2007,11 @@ public class Case {
             checkForCancellation();
             openCaseLevelServices(progressIndicator);
             checkForCancellation();
-            openAppServiceCaseResources(progressIndicator);
+            openAppServiceCaseResources(progressIndicator, false);
             checkForCancellation();
             openCommunicationChannels(progressIndicator);
+            checkForCancellation();
+            openFileSystemsInBackground();
             return null;
 
         } catch (CaseActionException ex) {
@@ -1995,6 +2028,143 @@ public class Case {
             close(progressIndicator);
             throw ex;
         }
+    }
+
+    /**
+     * Starts a background task that reads a sector from each file system of
+     * each image of a case to do an eager open of the filesystems in the case.
+     * If this method is called before another background file system read has
+     * finished the earlier one will be cancelled.
+     *
+     * @throws CaseActionCancelledException Exception thrown if task is
+     *                                      cancelled.
+     */
+    @Messages({
+        "# {0} - case", "Case.openFileSystems.retrievingImages=Retrieving images for case: {0}...",
+        "# {0} - image", "Case.openFileSystems.openingImage=Opening all filesystems for image: {0}..."
+    })
+    private void openFileSystemsInBackground() {
+        if (backgroundOpenFileSystemsFuture != null && !backgroundOpenFileSystemsFuture.isDone()) {
+            backgroundOpenFileSystemsFuture.cancel(true);
+        }
+
+        BackgroundOpenFileSystemsTask backgroundTask = new BackgroundOpenFileSystemsTask(this.caseDb, new LoggingProgressIndicator());
+        backgroundOpenFileSystemsFuture = openFileSystemsExecutor.submit(backgroundTask);
+    }
+
+    /**
+     * This task opens all the filesystems of all images in the case in the
+     * background. It also responds to cancellation events.
+     */
+    private static class BackgroundOpenFileSystemsTask implements Runnable {
+
+        private final SleuthkitCase tskCase;
+        private final String caseName;
+        private final long MAX_IMAGE_THRESHOLD = 100;
+        private final ProgressIndicator progressIndicator;
+
+        /**
+         * Main constructor for the BackgroundOpenFileSystemsTask.
+         *
+         * @param tskCase           The case database to query for filesystems
+         *                          to open.
+         * @param progressIndicator The progress indicator for file systems
+         *                          opened.
+         */
+        BackgroundOpenFileSystemsTask(SleuthkitCase tskCase, ProgressIndicator progressIndicator) {
+            this.tskCase = tskCase;
+            this.progressIndicator = progressIndicator;
+            caseName = (this.tskCase != null) ? this.tskCase.getDatabaseName() : "";
+        }
+
+        /**
+         * Checks if thread has been cancelled and throws an
+         * InterruptedException if it has.
+         *
+         * @throws InterruptedException The exception thrown if the operation
+         *                              has been cancelled.
+         */
+        private void checkIfCancelled() throws InterruptedException {
+            if (Thread.interrupted()) {
+                throw new InterruptedException();
+            }
+        }
+
+        /**
+         * Retrieves all images present in the sleuthkit case.
+         *
+         * @return All images present in the sleuthkit case.
+         */
+        private List<Image> getImages() {
+            progressIndicator.progress(Bundle.Case_openFileSystems_retrievingImages(caseName));
+            try {
+                return this.tskCase.getImages();
+            } catch (TskCoreException ex) {
+                logger.log(
+                        Level.SEVERE,
+                        String.format("Could not obtain images while opening case: %s.", caseName),
+                        ex);
+
+                return null;
+            }
+        }
+
+        /**
+         * Opens all file systems in the list of images provided.
+         *
+         * @param images The images whose file systems will be opened.
+         *
+         * @throws CaseActionCancelledException The exception thrown in the
+         *                                      event that the operation is
+         *                                      cancelled prior to completion.
+         */
+        private void openFileSystems(List<Image> images) throws TskCoreException, InterruptedException {
+            byte[] tempBuff = new byte[512];
+            
+            for (Image image : images) {
+                String imageStr = image.getName();
+
+                progressIndicator.progress(Bundle.Case_openFileSystems_openingImage(imageStr));
+
+                Collection<FileSystem> fileSystems = this.tskCase.getImageFileSystems(image);
+                checkIfCancelled();
+                for (FileSystem fileSystem : fileSystems) {
+                    fileSystem.read(tempBuff, 0, 512);
+                    checkIfCancelled();
+                }
+
+            }
+        }
+
+        @Override
+        public void run() {
+            try {
+                checkIfCancelled();
+                List<Image> images = getImages();
+                if (images == null) {
+                    return;
+                }
+                
+                if (images.size() > MAX_IMAGE_THRESHOLD) {
+                    // If we have a large number of images, don't try to preload anything
+                    logger.log(
+                        Level.INFO,
+                        String.format("Skipping background load of file systems due to large number of images in case (%d)", images.size()));
+                    return;
+                }
+
+                checkIfCancelled();
+                openFileSystems(images);
+            } catch (InterruptedException ex) {
+                logger.log(
+                        Level.INFO,
+                        String.format("Background operation opening all file systems in %s has been cancelled.", caseName));
+            } catch (Exception ex) {
+                // Exception firewall
+                logger.log(Level.WARNING, "Error while opening file systems in background", ex);
+            }
+        }
+
     }
 
     /**
@@ -2336,6 +2506,7 @@ public class Case {
      * specific to this case.
      *
      * @param progressIndicator A progress indicator.
+     * @param isNewCase True if case is new
      *
      * @throws CaseActionException If there is a problem completing the
      *                             operation. The exception will have a
@@ -2348,7 +2519,7 @@ public class Case {
         "# {0} - service name", "Case.serviceOpenCaseResourcesProgressIndicator.cancellingMessage=Cancelling opening case resources by {0}...",
         "# {0} - service name", "Case.servicesException.notificationTitle={0} Error"
     })
-    private void openAppServiceCaseResources(ProgressIndicator progressIndicator) throws CaseActionException {
+    private void openAppServiceCaseResources(ProgressIndicator progressIndicator, boolean isNewCase) throws CaseActionException {
         /*
          * Each service gets its own independently cancellable/interruptible
          * task, running in a named thread managed by an executor service, with
@@ -2380,7 +2551,7 @@ public class Case {
                 appServiceProgressIndicator = new LoggingProgressIndicator();
             }
             appServiceProgressIndicator.start(Bundle.Case_progressMessage_preparing());
-            AutopsyService.CaseContext context = new AutopsyService.CaseContext(this, appServiceProgressIndicator);
+            AutopsyService.CaseContext context = new AutopsyService.CaseContext(this, appServiceProgressIndicator, isNewCase);
             String threadNameSuffix = service.getServiceName().replaceAll("[ ]", "-"); //NON-NLS
             threadNameSuffix = threadNameSuffix.toLowerCase();
             TaskThreadFactory threadFactory = new TaskThreadFactory(String.format(CASE_RESOURCES_THREAD_NAME, threadNameSuffix));

@@ -807,10 +807,6 @@
                 <binary-origin>release/modules/ext/sigar-1.6.4.jar</binary-origin>
             </class-path-extension>
             <class-path-extension>
-                <runtime-relative-path>ext/jna-3.4.0.jar</runtime-relative-path>
-                <binary-origin>release/modules/ext/jna-3.4.0.jar</binary-origin>
-            </class-path-extension>
-            <class-path-extension>
                 <runtime-relative-path>ext/gson-2.8.5.jar</runtime-relative-path>
                 <binary-origin>release/modules/ext/gson-2.8.5.jar</binary-origin>
             </class-path-extension>
@@ -923,6 +919,10 @@
                 <binary-origin>release/modules/ext/commons-compress-1.18.jar</binary-origin>
             </class-path-extension>
             <class-path-extension>
+                <runtime-relative-path>ext/jna-platform-5.6.0.jar</runtime-relative-path>
+                <binary-origin>release\modules\ext\jna-platform-5.6.0.jar</binary-origin>
+            </class-path-extension>
+            <class-path-extension>
                 <runtime-relative-path>ext/opencv-248.jar</runtime-relative-path>
                 <binary-origin>release/modules/ext/opencv-248.jar</binary-origin>
             </class-path-extension>
@@ -947,8 +947,8 @@
                 <binary-origin>release/modules/ext/imageio-bmp-3.2.jar</binary-origin>
             </class-path-extension>
             <class-path-extension>
-                <runtime-relative-path>ext/platform-3.4.0.jar</runtime-relative-path>
-                <binary-origin>release/modules/ext/platform-3.4.0.jar</binary-origin>
+                <runtime-relative-path>ext/jna-5.6.0.jar</runtime-relative-path>
+                <binary-origin>release\modules\ext\jna-5.6.0.jar</binary-origin>
             </class-path-extension>
             <class-path-extension>
                 <runtime-relative-path>ext/commons-lang-2.6.jar</runtime-relative-path>

@@ -1,7 +1,7 @@
 /*
  * Autopsy Forensic Browser
  *
- * Copyright 2014-2019 Basis Technology Corp.
+ * Copyright 2014-2020 Basis Technology Corp.
  * Contact: carrier <at> sleuthkit <dot> org
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -72,8 +72,8 @@ import org.sleuthkit.autopsy.casemodule.events.ContentTagDeletedEvent;
 import org.sleuthkit.autopsy.coreutils.History;
 import org.sleuthkit.autopsy.coreutils.LoggedTask;
 import org.sleuthkit.autopsy.coreutils.Logger;
-import org.sleuthkit.autopsy.coreutils.MessageNotifyUtil;
 import org.sleuthkit.autopsy.coreutils.ThreadConfined;
+import org.sleuthkit.autopsy.coreutils.ThreadUtils;
 import org.sleuthkit.autopsy.events.AutopsyEvent;
 import org.sleuthkit.autopsy.ingest.IngestManager;
 import org.sleuthkit.autopsy.ingest.ModuleDataEvent;
@@ -376,17 +376,26 @@ public class TimeLineController {
         }
     }
 
+    
     /**
-     * "Shut down" Timeline. Remove all the case and ingest listers. Close the
-     * timeline window.
+     * Shuts down the task executor in charge of handling case events.
+     */
+    void shutDownTimeLineListeners() {
+        ThreadUtils.shutDownTaskExecutor(executor);
+    }
+    
+    /**
+     * "Shut down" Timeline. Close the timeline window.
      */
     @ThreadConfined(type = ThreadConfined.ThreadType.AWT)
-    public void shutDownTimeLine() {
+    public void shutDownTimeLineGui() {
         if (topComponent != null) {
             topComponent.close();
             topComponent = null;
         }
     }
+    
+    
 
     /**
      * Add the case and ingest listeners, prompt for rebuilding the database if
@@ -778,13 +787,9 @@ public class TimeLineController {
             case CONTENT_TAG_DELETED:
                 future = executor.submit(() -> filteredEvents.handleContentTagDeleted((ContentTagDeletedEvent) evt));
                 break;
-            case CURRENT_CASE:
-                //close timeline on case changes.
-                SwingUtilities.invokeLater(TimeLineController.this::shutDownTimeLine);
-                break;
             case DATA_SOURCE_ADDED:
                 future = executor.submit(() -> {
-                    filteredEvents.invalidateCaches(null);
+                    filteredEvents.handleDataSourceAdded();
                     return null;
                 });
                 break;
@@ -806,7 +811,6 @@ public class TimeLineController {
                 future.get();
             } catch (InterruptedException | ExecutionException ex) {
                 logger.log(Level.SEVERE, errorLogMessage, ex);
-                MessageNotifyUtil.Message.error(errorUserMessage);
             }
         }, MoreExecutors.directExecutor());
     }

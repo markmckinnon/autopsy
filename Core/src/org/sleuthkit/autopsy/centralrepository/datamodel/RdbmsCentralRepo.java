@@ -41,13 +41,19 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
+import org.apache.commons.lang3.tuple.Pair;
 import org.openide.util.NbBundle.Messages;
 import org.sleuthkit.autopsy.casemodule.Case;
+import org.sleuthkit.autopsy.centralrepository.datamodel.CentralRepoAccount.CentralRepoAccountType;
 import static org.sleuthkit.autopsy.centralrepository.datamodel.CentralRepoDbUtil.updateSchemaVersion;
 import org.sleuthkit.autopsy.coreutils.Logger;
 import org.sleuthkit.autopsy.healthmonitor.HealthMonitor;
 import org.sleuthkit.autopsy.healthmonitor.TimingMetric;
+import org.sleuthkit.datamodel.Account;
 import org.sleuthkit.datamodel.CaseDbSchemaVersionNumber;
+import org.sleuthkit.datamodel.HashHitInfo;
+import org.sleuthkit.datamodel.InvalidAccountIDException;
+import org.sleuthkit.datamodel.SleuthkitCase;
 import org.sleuthkit.datamodel.TskData;
 
 /**
@@ -62,7 +68,7 @@ abstract class RdbmsCentralRepo implements CentralRepository {
     static final String SCHEMA_MINOR_VERSION_KEY = "SCHEMA_MINOR_VERSION";
     static final String CREATION_SCHEMA_MAJOR_VERSION_KEY = "CREATION_SCHEMA_MAJOR_VERSION";
     static final String CREATION_SCHEMA_MINOR_VERSION_KEY = "CREATION_SCHEMA_MINOR_VERSION";
-    static final CaseDbSchemaVersionNumber SOFTWARE_CR_DB_SCHEMA_VERSION = new CaseDbSchemaVersionNumber(1, 3);
+    static final CaseDbSchemaVersionNumber SOFTWARE_CR_DB_SCHEMA_VERSION = new CaseDbSchemaVersionNumber(1, 5);
 
     protected final List<CorrelationAttributeInstance.Type> defaultCorrelationTypes;
 
@@ -71,6 +77,13 @@ abstract class RdbmsCentralRepo implements CentralRepository {
     private final Map<String, Collection<CorrelationAttributeInstance>> bulkArtifacts;
     private static final int CASE_CACHE_TIMEOUT = 5;
     private static final int DATA_SOURCE_CACHE_TIMEOUT = 5;
+    private static final int ACCOUNTS_CACHE_TIMEOUT = 5;
+    private static final Cache<String, CentralRepoAccountType> accountTypesCache = CacheBuilder.newBuilder().build();
+    private static final Cache<Pair<CentralRepoAccountType, String>, CentralRepoAccount> accountsCache = CacheBuilder.newBuilder()
+            .expireAfterWrite(ACCOUNTS_CACHE_TIMEOUT, TimeUnit.MINUTES).
+            build();
+
+    private boolean isCRTypeCacheInitialized;
     private static final Cache<Integer, CorrelationAttributeInstance.Type> typeCache = CacheBuilder.newBuilder().build();
     private static final Cache<String, CorrelationCase> caseCacheByUUID = CacheBuilder.newBuilder()
             .expireAfterWrite(CASE_CACHE_TIMEOUT, TimeUnit.MINUTES).
@@ -91,12 +104,15 @@ abstract class RdbmsCentralRepo implements CentralRepository {
     // Update Test code if this changes.  It's hard coded there.
     static final int DEFAULT_BULK_THRESHHOLD = 1000;
 
+    private static final int QUERY_STR_MAX_LEN = 1000;
+
     /**
      * Connect to the DB and initialize it.
      *
      * @throws UnknownHostException, EamDbException
      */
     protected RdbmsCentralRepo() throws CentralRepoException {
+        isCRTypeCacheInitialized = false;
         bulkArtifactsCount = 0;
         bulkArtifacts = new HashMap<>();
 
@@ -115,6 +131,11 @@ abstract class RdbmsCentralRepo implements CentralRepository {
      * Setup and create a connection to the selected database implementation
      */
     protected abstract Connection connect() throws CentralRepoException;
+
+    /**
+     * Get an ephemeral connection.
+     */
+    protected abstract Connection getEphemeralConnection();
 
     /**
      * Add a new name/value pair in the db_info table.
@@ -201,12 +222,16 @@ abstract class RdbmsCentralRepo implements CentralRepository {
     /**
      * Reset the contents of the caches associated with EamDb results.
      */
-    protected final void clearCaches() {
-        typeCache.invalidateAll();
+    public final void clearCaches() {
+        synchronized (typeCache) {
+            typeCache.invalidateAll();
+            isCRTypeCacheInitialized = false;
+        }
         caseCacheByUUID.invalidateAll();
         caseCacheById.invalidateAll();
         dataSourceCacheByDsObjectId.invalidateAll();
         dataSourceCacheById.invalidateAll();
+        accountsCache.invalidateAll();
     }
 
     /**
@@ -989,21 +1014,28 @@ abstract class RdbmsCentralRepo implements CentralRepository {
     public void addArtifactInstance(CorrelationAttributeInstance eamArtifact) throws CentralRepoException {
         checkAddArtifactInstanceNulls(eamArtifact);
 
-        Connection conn = connect();
-
-        PreparedStatement preparedStatement = null;
-
         // @@@ We should cache the case and data source IDs in memory
         String tableName = CentralRepoDbUtil.correlationTypeToInstanceTableName(eamArtifact.getCorrelationType());
-        String sql
-                = "INSERT INTO "
-                + tableName
-                + "(case_id, data_source_id, value, file_path, known_status, comment, file_obj_id) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?) "
-                + getConflictClause();
+        boolean artifactHasAnAccount = CentralRepoDbUtil.correlationAttribHasAnAccount(eamArtifact.getCorrelationType());
 
-        try {
-            preparedStatement = conn.prepareStatement(sql);
+        String sql;
+        // _instance table for accounts have an additional account_id column 
+        if (artifactHasAnAccount) {
+            sql = "INSERT INTO "
+                    + tableName
+                    + "(case_id, data_source_id, value, file_path, known_status, comment, file_obj_id, account_id) "
+                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+                    + getConflictClause();
+        } else {
+            sql = "INSERT INTO "
+                    + tableName
+                    + "(case_id, data_source_id, value, file_path, known_status, comment, file_obj_id) "
+                    + "VALUES (?, ?, ?, ?, ?, ?, ?) "
+                    + getConflictClause();
+        }
+
+        try (Connection conn = connect();
+                PreparedStatement preparedStatement = conn.prepareStatement(sql);) {
 
             if (!eamArtifact.getCorrelationValue().isEmpty()) {
                 preparedStatement.setInt(1, eamArtifact.getCorrelationCase().getID());
@@ -1019,15 +1051,196 @@ abstract class RdbmsCentralRepo implements CentralRepository {
                 }
                 preparedStatement.setLong(7, eamArtifact.getFileObjectId());
 
+                // set in the accountId only for artifacts that represent accounts
+                if (artifactHasAnAccount) {
+                    if (eamArtifact.getAccountId() >= 0) {
+                        preparedStatement.setLong(8, eamArtifact.getAccountId());
+                    } else {
+                        preparedStatement.setNull(8, Types.INTEGER);
+                    }
+                }
+
                 preparedStatement.executeUpdate();
             }
 
         } catch (SQLException ex) {
             throw new CentralRepoException("Error inserting new artifact into artifacts table.", ex); // NON-NLS
-        } finally {
-            CentralRepoDbUtil.closeStatement(preparedStatement);
-            CentralRepoDbUtil.closeConnection(conn);
         }
+    }
+
+    /**
+     * Gets the Central Repo account for the given account type and account ID.
+     * Create a new account first, if one doesn't exist
+     *
+     * @param accountType     account type
+     * @param accountUniqueID unique account identifier
+     *
+     * @return A matching account, either existing or newly created.
+     *
+     * @throws TskCoreException exception thrown if a critical error occurs
+     *                          within TSK core
+     */
+    @Override
+    public CentralRepoAccount getOrCreateAccount(CentralRepoAccountType crAccountType, String accountUniqueID) throws InvalidAccountIDException, CentralRepoException {
+        // Get the account fom the accounts table
+        String normalizedAccountID = CentralRepoAccount.normalizeAccountIdentifier(crAccountType, accountUniqueID);
+
+        // insert the account.  If there is a conflict, ignore it.
+        String insertSQL;
+        switch (CentralRepoDbManager.getSavedDbChoice().getDbPlatform()) {
+            case POSTGRESQL:
+                insertSQL =  "INSERT INTO accounts (account_type_id, account_unique_identifier) VALUES (?, ?) " + getConflictClause();  //NON-NLS
+                break;
+            case SQLITE:
+                insertSQL = "INSERT OR IGNORE INTO accounts (account_type_id, account_unique_identifier) VALUES (?, ?) "; //NON-NLS
+                break;
+            default:
+                throw new CentralRepoException(String.format("Cannot add account to currently selected CR database platform %s", CentralRepoDbManager.getSavedDbChoice().getDbPlatform())); //NON-NLS
+        }
+        
+
+        try (Connection connection = connect();
+                PreparedStatement preparedStatement = connection.prepareStatement(insertSQL);) {
+
+            preparedStatement.setInt(1, crAccountType.getAccountTypeId());
+            preparedStatement.setString(2, normalizedAccountID);
+
+            preparedStatement.executeUpdate();
+
+            // get the account from the db - should exist now.
+            return getAccount(crAccountType, normalizedAccountID);
+        } catch (SQLException ex) {
+            throw new CentralRepoException("Error adding an account to CR database.", ex);
+        }
+    }
+
+    @Override
+    public CentralRepoAccountType getAccountTypeByName(String accountTypeName) throws CentralRepoException {
+        try {
+            return accountTypesCache.get(accountTypeName, () -> getCRAccountTypeFromDb(accountTypeName));
+        } catch (CacheLoader.InvalidCacheLoadException | ExecutionException ex) {
+            throw new CentralRepoException("Error looking up CR account type in cache.", ex);
+        }
+    }
+
+    @Override
+    public Collection<CentralRepoAccountType> getAllAccountTypes() throws CentralRepoException {
+
+        Collection<CentralRepoAccountType> accountTypes = new ArrayList<>();
+
+        String sql = "SELECT * FROM account_types";
+        try (Connection conn = connect();
+                PreparedStatement preparedStatement = conn.prepareStatement(sql);) {
+
+            try (ResultSet resultSet = preparedStatement.executeQuery();) {
+                while (resultSet.next()) {
+                    Account.Type acctType = new Account.Type(resultSet.getString("type_name"), resultSet.getString("display_name"));
+                    CentralRepoAccountType crAccountType = new CentralRepoAccountType(resultSet.getInt("id"), acctType, resultSet.getInt("correlation_type_id"));
+
+                    accountTypes.add(crAccountType);
+                }
+            }
+        } catch (SQLException ex) {
+            throw new CentralRepoException("Error getting account types from central repository.", ex); // NON-NLS
+        }
+        return accountTypes;
+    }
+
+    /**
+     * Gets the CR account type for the specified type name.
+     *
+     * @param accountTypeName account type name to look for
+     *
+     * @return CR account type
+     *
+     * @throws CentralRepoException
+     */
+    private CentralRepoAccountType getCRAccountTypeFromDb(String accountTypeName) throws CentralRepoException {
+
+        String sql = "SELECT * FROM account_types WHERE type_name = ?";
+        try (Connection conn = connect();
+                PreparedStatement preparedStatement = conn.prepareStatement(sql);) {
+
+            preparedStatement.setString(1, accountTypeName);
+            try (ResultSet resultSet = preparedStatement.executeQuery();) {
+                if (resultSet.next()) {
+                    Account.Type acctType = new Account.Type(accountTypeName, resultSet.getString("display_name"));
+                    CentralRepoAccountType crAccountType = new CentralRepoAccountType(resultSet.getInt("id"), acctType, resultSet.getInt("correlation_type_id"));
+                    accountTypesCache.put(accountTypeName, crAccountType);
+                    return crAccountType;
+                } else {
+                    throw new CentralRepoException("Failed to find entry for account type = " + accountTypeName);
+                }
+            }
+        } catch (SQLException ex) {
+            throw new CentralRepoException("Error getting correlation type by id.", ex); // NON-NLS
+        }
+    }
+
+    /**
+     * Get the CR account with the given account type and the unique account
+     * identifier. Looks in the cache first. If not found in cache, reads from
+     * the database and saves in cache.
+     *
+     * Returns null if the account is not found in the cache and not in the
+     * database.
+     *
+     * @param crAccountType   account type to look for
+     * @param accountUniqueID unique account id
+     *
+     * @return CentralRepoAccount for the give type/id. May return null if not
+     *         found.
+     *
+     * @throws CentralRepoException  If there is an error accessing Central Repository.
+     * @throws InvalidAccountIDException If the account identifier is not valid.
+     */
+    @Override
+    public CentralRepoAccount getAccount(CentralRepoAccountType crAccountType, String accountUniqueID) throws InvalidAccountIDException, CentralRepoException {
+        String normalizedAccountID = CentralRepoAccount.normalizeAccountIdentifier(crAccountType, accountUniqueID);
+        CentralRepoAccount crAccount = accountsCache.getIfPresent(Pair.of(crAccountType, normalizedAccountID));
+        if (crAccount == null) {
+            crAccount = getCRAccountFromDb(crAccountType, normalizedAccountID);
+            if (crAccount != null) {
+                accountsCache.put(Pair.of(crAccountType, normalizedAccountID), crAccount);
+            }
+        }
+
+        return crAccount;
+    }
+
+    /**
+     * Get the Account with the given account type and account identifier, from
+     * the database.
+     *
+     * @param accountType     account type
+     * @param accountUniqueID unique account identifier
+     *
+     * @return Account, returns NULL is no matching account found
+     *
+     * @throws TskCoreException exception thrown if a critical error occurs
+     *                          within TSK core
+     */
+    private CentralRepoAccount getCRAccountFromDb(CentralRepoAccountType crAccountType, String accountUniqueID) throws CentralRepoException {
+
+        CentralRepoAccount account = null;
+
+        String sql = "SELECT * FROM accounts WHERE account_type_id =  ? AND account_unique_identifier = ?";
+        try (Connection connection = connect();
+                PreparedStatement preparedStatement = connection.prepareStatement(sql);) {
+
+            preparedStatement.setInt(1, crAccountType.getAccountTypeId());
+            preparedStatement.setString(2, accountUniqueID);
+
+            try (ResultSet resultSet = preparedStatement.executeQuery();) {
+                if (resultSet.next()) {
+                    account = new CentralRepoAccount(resultSet.getInt("id"), crAccountType, resultSet.getString("account_unique_identifier"));   //NON-NLS
+                }
+            }
+        } catch (SQLException ex) {
+            throw new CentralRepoException("Error getting account type id", ex);
+        }
+
+        return account;
     }
 
     private void checkAddArtifactInstanceNulls(CorrelationAttributeInstance eamArtifact) throws CentralRepoException {
@@ -1369,6 +1582,9 @@ abstract class RdbmsCentralRepo implements CentralRepository {
         }
 
         synchronized (bulkArtifacts) {
+            if (bulkArtifacts.get(CentralRepoDbUtil.correlationTypeToInstanceTableName(eamArtifact.getCorrelationType())) == null) {
+                bulkArtifacts.put(CentralRepoDbUtil.correlationTypeToInstanceTableName(eamArtifact.getCorrelationType()), new ArrayList<>());
+            }
             bulkArtifacts.get(CentralRepoDbUtil.correlationTypeToInstanceTableName(eamArtifact.getCorrelationType())).add(eamArtifact);
             bulkArtifactsCount++;
 
@@ -1473,7 +1689,7 @@ abstract class RdbmsCentralRepo implements CentralRepository {
                     bulkArtifacts.get(tableName).clear();
                 }
 
-                TimingMetric timingMetric = HealthMonitor.getTimingMetric("Correlation Engine: Bulk insert");
+                TimingMetric timingMetric = HealthMonitor.getTimingMetric("Central Repository: Bulk insert");
                 HealthMonitor.submitTimingMetric(timingMetric);
 
                 // Reset state
@@ -1794,8 +2010,7 @@ abstract class RdbmsCentralRepo implements CentralRepository {
         String sqlUpdate
                 = "UPDATE "
                 + tableName
-                + " SET known_status=?, comment=? "
-                + "WHERE id=?";
+                + " SET known_status=? WHERE id=?";
 
         try {
             preparedQuery = conn.prepareStatement(sqlQuery);
@@ -1809,15 +2024,7 @@ abstract class RdbmsCentralRepo implements CentralRepository {
                 preparedUpdate = conn.prepareStatement(sqlUpdate);
 
                 preparedUpdate.setByte(1, knownStatus.getFileKnownValue());
-                // NOTE: if the user tags the same instance as BAD multiple times,
-                // the comment from the most recent tagging is the one that will
-                // prevail in the DB.
-                if ("".equals(eamArtifact.getComment())) {
-                    preparedUpdate.setNull(2, Types.INTEGER);
-                } else {
-                    preparedUpdate.setString(2, eamArtifact.getComment());
-                }
-                preparedUpdate.setInt(3, instance_id);
+                preparedUpdate.setInt(2, instance_id);
 
                 preparedUpdate.executeUpdate();
             } else {
@@ -2100,6 +2307,42 @@ abstract class RdbmsCentralRepo implements CentralRepository {
         return isValueInReferenceSet(hash, referenceSetID, CorrelationAttributeInstance.FILES_TYPE_ID);
     }
 
+    @Override
+    public HashHitInfo lookupHash(String hash, int referenceSetID) throws CentralRepoException, CorrelationAttributeNormalizationException {
+        int correlationTypeID = CorrelationAttributeInstance.FILES_TYPE_ID;
+        String normalizeValued = CorrelationAttributeNormalizer.normalize(this.getCorrelationTypeById(correlationTypeID), hash);
+
+        Connection conn = connect();
+
+        PreparedStatement preparedStatement = null;
+        ResultSet resultSet = null;
+        String sql = "SELECT value,comment FROM %s WHERE value=? AND reference_set_id=?";
+
+        String fileTableName = CentralRepoDbUtil.correlationTypeToReferenceTableName(getCorrelationTypeById(correlationTypeID));
+
+        try {
+            preparedStatement = conn.prepareStatement(String.format(sql, fileTableName));
+            preparedStatement.setString(1, normalizeValued);
+            preparedStatement.setInt(2, referenceSetID);
+            resultSet = preparedStatement.executeQuery();
+            if (resultSet.next()) {
+                String comment = resultSet.getString("comment");
+                String hashFound = resultSet.getString("value");
+                HashHitInfo found = new HashHitInfo(hashFound, "", "");
+                found.addComment(comment);
+                return found;
+            } else {
+                return null;
+            }
+        } catch (SQLException ex) {
+            throw new CentralRepoException("Error determining if value (" + normalizeValued + ") is in reference set " + referenceSetID, ex); // NON-NLS
+        } finally {
+            CentralRepoDbUtil.closeStatement(preparedStatement);
+            CentralRepoDbUtil.closeResultSet(resultSet);
+            CentralRepoDbUtil.closeConnection(conn);
+        }
+    }
+
     /**
      * Check if the given value is in a specific reference set
      *
@@ -2269,7 +2512,7 @@ abstract class RdbmsCentralRepo implements CentralRepository {
             CentralRepoDbUtil.closeConnection(conn);
         }
     }
-    
+
     /**
      * Process a SELECT query
      *
@@ -2307,7 +2550,56 @@ abstract class RdbmsCentralRepo implements CentralRepository {
             CentralRepoDbUtil.closeResultSet(resultSet);
             CentralRepoDbUtil.closeConnection(conn);
         }
-    }        
+    }
+
+    @Override
+    public void executeCommand(String sql, List<Object> params) throws CentralRepoException {
+      
+        try (Connection conn = connect();) {
+            
+            PreparedStatement preparedStatement = conn.prepareStatement(sql);
+                
+             // Fill in the params
+             if (params != null) {
+                int paramIndex = 1;
+                for (Object param : params) {
+                    preparedStatement.setObject(paramIndex, param);
+                    paramIndex += 1;
+                }
+            }
+            // execute the prepared statement
+            preparedStatement.executeUpdate();
+        } catch (SQLException ex) {
+            throw new CentralRepoException(String.format("Error executing prepared statement for SQL %s", sql), ex);
+        }
+    }
+
+    @Override
+    public void executeQuery(String sql, List<Object> params, CentralRepositoryDbQueryCallback queryCallback) throws CentralRepoException {
+        if (queryCallback == null) {
+            throw new CentralRepoException("Query callback is null");
+        }
+
+       
+        try ( Connection conn = connect();)   {
+             PreparedStatement preparedStatement = conn.prepareStatement(sql);
+             
+            // fill in the params
+            if (params != null) {
+                int paramIndex = 1;
+                for (Object param : params) {
+                    preparedStatement.setObject(paramIndex, param);
+                    paramIndex += 1;
+                }
+            }
+            // execute query, and the callback to process result
+            try (ResultSet resultSet = preparedStatement.executeQuery();) {
+                queryCallback.process(resultSet);
+            }
+        } catch (SQLException ex) {
+            throw new CentralRepoException(String.format("Error executing prepared statement for SQL query %s", sql), ex);
+        } 
+    }
 
     @Override
     public CentralRepoOrganization newOrganization(CentralRepoOrganization eamOrg) throws CentralRepoException {
@@ -2444,6 +2736,62 @@ abstract class RdbmsCentralRepo implements CentralRepository {
             throw new CentralRepoException("EamOrganization is null");
         } else if (org.getOrgID() == -1) {
             throw new CentralRepoException("Organization  has -1 row ID");
+        }
+    }
+
+    /**
+     * Queries the examiner table for the given user name. Adds a row if the
+     * user is not found in the examiner table.
+     *
+     * @param examinerLoginName user name to look for.
+     *
+     * @return CentralRepoExaminer for the given user name.
+     *
+     * @throws CentralRepoException If there is an error in looking up or
+     *                              inserting the user in the examiners table.
+     */
+    @Override
+    public CentralRepoExaminer getOrInsertExaminer(String examinerLoginName) throws CentralRepoException {
+
+        String querySQL = "SELECT * FROM examiners WHERE login_name = '" + SleuthkitCase.escapeSingleQuotes(examinerLoginName) + "'";
+        try (Connection connection = connect();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(querySQL);) {
+
+            if (resultSet.next()) {
+                return new CentralRepoExaminer(resultSet.getLong("id"), resultSet.getString("login_name"));
+            } else {
+                // Could not find this user in the Examiner table, add a row for it.
+                try {
+                    String insertSQL;
+                    switch (CentralRepoDbManager.getSavedDbChoice().getDbPlatform()) {
+                        case POSTGRESQL:
+                            insertSQL = "INSERT INTO examiners (login_name) VALUES ('" + SleuthkitCase.escapeSingleQuotes(examinerLoginName) + "')" + getConflictClause();  //NON-NLS
+                            break;
+                        case SQLITE:
+                            insertSQL = "INSERT OR IGNORE INTO examiners (login_name) VALUES ('" + SleuthkitCase.escapeSingleQuotes(examinerLoginName) + "')"; //NON-NLS
+                            break;
+                        default:
+                            throw new CentralRepoException(String.format("Cannot add examiner to currently selected CR database platform %s", CentralRepoDbManager.getSavedDbChoice().getDbPlatform())); //NON-NLS
+                    }
+                    statement.execute(insertSQL);
+
+                    // Query the table again to get the row for the user
+                    try (ResultSet resultSet2 = statement.executeQuery(querySQL)) {
+                        if (resultSet2.next()) {
+                            return new CentralRepoExaminer(resultSet2.getLong("id"), resultSet2.getString("login_name"));
+                        } else {
+                            throw new CentralRepoException("Error getting examiner for name = " + examinerLoginName);
+                        }
+                    }
+
+                } catch (SQLException ex) {
+                    throw new CentralRepoException("Error inserting row in examiners", ex);
+                }
+            }
+
+        } catch (SQLException ex) {
+            throw new CentralRepoException("Error getting examiner for name = " + examinerLoginName, ex);
         }
     }
 
@@ -2841,6 +3189,9 @@ abstract class RdbmsCentralRepo implements CentralRepository {
             typeId = newCorrelationTypeKnownId(newType);
         }
 
+        synchronized (typeCache) {
+            typeCache.put(newType.getId(), newType);
+        }
         return typeId;
     }
 
@@ -2954,27 +3305,12 @@ abstract class RdbmsCentralRepo implements CentralRepository {
 
     @Override
     public List<CorrelationAttributeInstance.Type> getDefinedCorrelationTypes() throws CentralRepoException {
-        Connection conn = connect();
 
-        List<CorrelationAttributeInstance.Type> aTypes = new ArrayList<>();
-        PreparedStatement preparedStatement = null;
-        ResultSet resultSet = null;
-        String sql = "SELECT * FROM correlation_types";
-
-        try {
-            preparedStatement = conn.prepareStatement(sql);
-            resultSet = preparedStatement.executeQuery();
-            while (resultSet.next()) {
-                aTypes.add(getCorrelationTypeFromResultSet(resultSet));
+        synchronized (typeCache) {
+            if (isCRTypeCacheInitialized == false) {
+                getCorrelationTypesFromCr();
             }
-            return aTypes;
-
-        } catch (SQLException ex) {
-            throw new CentralRepoException("Error getting all correlation types.", ex); // NON-NLS
-        } finally {
-            CentralRepoDbUtil.closeStatement(preparedStatement);
-            CentralRepoDbUtil.closeResultSet(resultSet);
-            CentralRepoDbUtil.closeConnection(conn);
+            return new ArrayList<>(typeCache.asMap().values());
         }
     }
 
@@ -3070,7 +3406,9 @@ abstract class RdbmsCentralRepo implements CentralRepository {
             preparedStatement.setInt(4, aType.isEnabled() ? 1 : 0);
             preparedStatement.setInt(5, aType.getId());
             preparedStatement.executeUpdate();
-            typeCache.put(aType.getId(), aType);
+            synchronized (typeCache) {
+                typeCache.put(aType.getId(), aType);
+            }
         } catch (SQLException ex) {
             throw new CentralRepoException("Error updating correlation type.", ex); // NON-NLS
         } finally {
@@ -3092,7 +3430,9 @@ abstract class RdbmsCentralRepo implements CentralRepository {
     @Override
     public CorrelationAttributeInstance.Type getCorrelationTypeById(int typeId) throws CentralRepoException {
         try {
-            return typeCache.get(typeId, () -> getCorrelationTypeByIdFromCr(typeId));
+            synchronized (typeCache) {
+                return typeCache.get(typeId, () -> getCorrelationTypeByIdFromCr(typeId));
+            }
         } catch (CacheLoader.InvalidCacheLoadException ignored) {
             //lambda valueloader returned a null value and cache can not store null values this is normal if the correlation type does not exist in the central repo yet
             return null;
@@ -3135,6 +3475,37 @@ abstract class RdbmsCentralRepo implements CentralRepository {
             CentralRepoDbUtil.closeStatement(preparedStatement);
             CentralRepoDbUtil.closeResultSet(resultSet);
             CentralRepoDbUtil.closeConnection(conn);
+        }
+    }
+
+    /**
+     * Reads the correlation types from the database and loads them up in the
+     * cache.
+     *
+     * @throws CentralRepoException If there is an error.
+     */
+    private void getCorrelationTypesFromCr() throws CentralRepoException {
+
+        // clear out the cache
+        synchronized (typeCache) {
+            typeCache.invalidateAll();
+            isCRTypeCacheInitialized = false;
+        }
+
+        String sql = "SELECT * FROM correlation_types";
+        try (Connection conn = connect();
+                PreparedStatement preparedStatement = conn.prepareStatement(sql);
+                ResultSet resultSet = preparedStatement.executeQuery();) {
+
+            synchronized (typeCache) {
+                while (resultSet.next()) {
+                    CorrelationAttributeInstance.Type aType = getCorrelationTypeFromResultSet(resultSet);
+                    typeCache.put(aType.getId(), aType);
+                }
+                isCRTypeCacheInitialized = true;
+            }
+        } catch (SQLException ex) {
+            throw new CentralRepoException("Error getting correlation types.", ex); // NON-NLS
         }
     }
 
@@ -3289,6 +3660,19 @@ abstract class RdbmsCentralRepo implements CentralRepository {
         );
     }
 
+    private String getPlatformSpecificInsertSQL(String sql) throws CentralRepoException {
+
+        switch (CentralRepoDbManager.getSavedDbChoice().getDbPlatform()) {
+            case POSTGRESQL:
+                return "INSERT " + sql + " ON CONFLICT DO NOTHING"; //NON-NLS
+            case SQLITE:
+                return "INSERT OR IGNORE " + sql;
+
+            default:
+                throw new CentralRepoException("Unknown Central Repo DB platform" + CentralRepoDbManager.getSavedDbChoice().getDbPlatform());
+        }
+    }
+
     /**
      * Determine if a specific column already exists in a specific table
      *
@@ -3328,7 +3712,7 @@ abstract class RdbmsCentralRepo implements CentralRepository {
             conn = connect(false);
             conn.setAutoCommit(false);
             statement = conn.createStatement();
-            selectedPlatform = CentralRepoPlatforms.getSelectedPlatform();
+            selectedPlatform = CentralRepoDbManager.getSavedDbChoice().getDbPlatform();
             int minorVersion = 0;
             String minorVersionStr = null;
             resultSet = statement.executeQuery("SELECT value FROM db_info WHERE name='" + RdbmsCentralRepo.SCHEMA_MINOR_VERSION_KEY + "'");
@@ -3401,39 +3785,27 @@ abstract class RdbmsCentralRepo implements CentralRepository {
              */
             if (dbSchemaVersion.compareTo(new CaseDbSchemaVersionNumber(1, 2)) < 0) {
                 final String addIntegerColumnTemplate = "ALTER TABLE %s ADD COLUMN %s INTEGER;";  //NON-NLS
-                final String addSsidTableTemplate;
-                final String addCaseIdIndexTemplate;
-                final String addDataSourceIdIndexTemplate;
-                final String addValueIndexTemplate;
-                final String addKnownStatusIndexTemplate;
-                final String addObjectIdIndexTemplate;
+
+                final String addSsidTableTemplate = RdbmsCentralRepoFactory.getCreateArtifactInstancesTableTemplate(selectedPlatform);
+                final String addCaseIdIndexTemplate = RdbmsCentralRepoFactory.getAddCaseIdIndexTemplate();
+                final String addDataSourceIdIndexTemplate = RdbmsCentralRepoFactory.getAddDataSourceIdIndexTemplate();
+                final String addValueIndexTemplate = RdbmsCentralRepoFactory.getAddValueIndexTemplate();
+                final String addKnownStatusIndexTemplate = RdbmsCentralRepoFactory.getAddKnownStatusIndexTemplate();
+                final String addObjectIdIndexTemplate = RdbmsCentralRepoFactory.getAddObjectIdIndexTemplate();
 
                 final String addAttributeSql;
                 //get the data base specific code for creating a new _instance table
                 switch (selectedPlatform) {
                     case POSTGRESQL:
                         addAttributeSql = "INSERT INTO correlation_types(id, display_name, db_table_name, supported, enabled) VALUES (?, ?, ?, ?, ?) " + getConflictClause();  //NON-NLS
-
-                        addSsidTableTemplate = PostgresCentralRepoSettings.getCreateArtifactInstancesTableTemplate();
-                        addCaseIdIndexTemplate = PostgresCentralRepoSettings.getAddCaseIdIndexTemplate();
-                        addDataSourceIdIndexTemplate = PostgresCentralRepoSettings.getAddDataSourceIdIndexTemplate();
-                        addValueIndexTemplate = PostgresCentralRepoSettings.getAddValueIndexTemplate();
-                        addKnownStatusIndexTemplate = PostgresCentralRepoSettings.getAddKnownStatusIndexTemplate();
-                        addObjectIdIndexTemplate = PostgresCentralRepoSettings.getAddObjectIdIndexTemplate();
                         break;
                     case SQLITE:
                         addAttributeSql = "INSERT OR IGNORE INTO correlation_types(id, display_name, db_table_name, supported, enabled) VALUES (?, ?, ?, ?, ?)";  //NON-NLS
-
-                        addSsidTableTemplate = SqliteCentralRepoSettings.getCreateArtifactInstancesTableTemplate();
-                        addCaseIdIndexTemplate = SqliteCentralRepoSettings.getAddCaseIdIndexTemplate();
-                        addDataSourceIdIndexTemplate = SqliteCentralRepoSettings.getAddDataSourceIdIndexTemplate();
-                        addValueIndexTemplate = SqliteCentralRepoSettings.getAddValueIndexTemplate();
-                        addKnownStatusIndexTemplate = SqliteCentralRepoSettings.getAddKnownStatusIndexTemplate();
-                        addObjectIdIndexTemplate = SqliteCentralRepoSettings.getAddObjectIdIndexTemplate();
                         break;
                     default:
                         throw new CentralRepoException("Currently selected database platform \"" + selectedPlatform.name() + "\" can not be upgraded.", Bundle.AbstractSqlEamDb_cannotUpgrage_message(selectedPlatform.name()));
                 }
+
                 final String dataSourcesTableName = "data_sources";
                 final String dataSourceObjectIdColumnName = "datasource_obj_id";
                 if (!doesColumnExist(conn, dataSourcesTableName, dataSourceObjectIdColumnName)) {
@@ -3586,8 +3958,8 @@ abstract class RdbmsCentralRepo implements CentralRepository {
                                 + "md5 text DEFAULT NULL,sha1 text DEFAULT NULL,sha256 text DEFAULT NULL,"
                                 + "foreign key (case_id) references cases(id) ON UPDATE SET NULL ON DELETE SET NULL,"
                                 + "CONSTRAINT datasource_unique UNIQUE (case_id, device_id, name, datasource_obj_id))");
-                        statement.execute(SqliteCentralRepoSettings.getAddDataSourcesNameIndexStatement());
-                        statement.execute(SqliteCentralRepoSettings.getAddDataSourcesObjectIdIndexStatement());
+                        statement.execute(RdbmsCentralRepoFactory.getAddDataSourcesNameIndexStatement());
+                        statement.execute(RdbmsCentralRepoFactory.getAddDataSourcesObjectIdIndexStatement());
                         statement.execute("INSERT INTO data_sources SELECT * FROM old_data_sources");
                         statement.execute("DROP TABLE old_data_sources");
                         break;
@@ -3595,6 +3967,13 @@ abstract class RdbmsCentralRepo implements CentralRepository {
                         throw new CentralRepoException("Currently selected database platform \"" + selectedPlatform.name() + "\" can not be upgraded.", Bundle.AbstractSqlEamDb_cannotUpgrage_message(selectedPlatform.name()));
                 }
             }
+
+            // Upgrade to 1.4
+            (new CentralRepoDbUpgrader13To14()).upgradeSchema(dbSchemaVersion, conn);
+
+            // Upgrade to 1.5
+            (new CentralRepoDbUpgrader14To15()).upgradeSchema(dbSchemaVersion, conn);
+
             updateSchemaVersion(conn);
             conn.commit();
             logger.log(Level.INFO, String.format("Central Repository schema updated to version %s", SOFTWARE_CR_DB_SCHEMA_VERSION));

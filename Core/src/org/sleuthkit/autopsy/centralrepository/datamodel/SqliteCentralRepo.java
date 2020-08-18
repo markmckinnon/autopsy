@@ -144,7 +144,8 @@ final class SqliteCentralRepo extends RdbmsCentralRepo {
                 CentralRepoDbUtil.closeConnection(conn);
             }
 
-            dbSettings.insertDefaultDatabaseContent();
+            RdbmsCentralRepoFactory centralRepoSchemaFactory =  new RdbmsCentralRepoFactory(CentralRepoPlatforms.SQLITE, dbSettings);
+            centralRepoSchemaFactory.insertDefaultDatabaseContent();
         } finally {
             releaseExclusiveLock();
         }
@@ -226,6 +227,10 @@ final class SqliteCentralRepo extends RdbmsCentralRepo {
         return "";
     }
 
+    @Override
+    protected Connection getEphemeralConnection() {
+         return this.dbSettings.getEphemeralConnection();
+     }
     /**
      * Add a new name/value pair in the db_info table.
      *
@@ -827,7 +832,27 @@ final class SqliteCentralRepo extends RdbmsCentralRepo {
             releaseSharedLock();
         }        
     }      
-
+    
+    @Override
+    public void executeCommand(String sql, List<Object> params) throws CentralRepoException {
+        try {
+            acquireExclusiveLock();
+            super.executeCommand(sql, params);
+        } finally {
+            releaseExclusiveLock();
+        }
+    }
+    
+    @Override
+    public void executeQuery(String sql, List<Object> params, CentralRepositoryDbQueryCallback queryCallback) throws CentralRepoException {
+        try {
+            acquireSharedLock();
+            super.executeQuery(sql, params, queryCallback);
+        } finally {
+            releaseSharedLock();
+        }
+    }
+    
     /**
      * Check whether a reference set with the given name/version is in the
      * central repo. Used to check for name collisions when creating reference
