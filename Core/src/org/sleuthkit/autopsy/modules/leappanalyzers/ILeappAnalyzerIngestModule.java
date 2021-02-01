@@ -65,6 +65,7 @@ public class ILeappAnalyzerIngestModule implements DataSourceIngestModule {
 
     private static final Logger logger = Logger.getLogger(ILeappAnalyzerIngestModule.class.getName());
     private static final String MODULE_NAME = ILeappAnalyzerModuleFactory.getModuleName();
+    private final IngestServices services = IngestServices.getInstance();
 
     private static final String ILEAPP = "iLeapp"; //NON-NLS
     private static final String ILEAPP_FS = "fs_"; //NON-NLS
@@ -91,7 +92,7 @@ public class ILeappAnalyzerIngestModule implements DataSourceIngestModule {
     @Override
     public void startUp(IngestJobContext context) throws IngestModuleException {
         this.context = context;
-
+        
         if (false == PlatformUtil.isWindowsOS()) {
             throw new IngestModuleException(Bundle.ILeappAnalyzerIngestModule_requires_windows());
         }
@@ -119,9 +120,19 @@ public class ILeappAnalyzerIngestModule implements DataSourceIngestModule {
         "ILeappAnalyzerIngestModule.has.run=iLeapp",
         "ILeappAnalyzerIngestModule.iLeapp.cancelled=iLeapp run was canceled",
         "ILeappAnalyzerIngestModule.completed=iLeapp Processing Completed",
-        "ILeappAnalyzerIngestModule.report.name=iLeapp Html Report"})
+        "ILeappAnalyzerIngestModule.report.name=iLeapp Html Report",
+        "ILeappAnalyzer.not.64bit.os=iLeapp will not run on 32bit operating system"})
     @Override
     public ProcessResult process(Content dataSource, DataSourceIngestModuleProgress statusHelper) {
+
+        if (false == PlatformUtil.is64BitOS()) {
+            IngestMessage ingestMessage = IngestMessage.createErrorMessage(ILeappAnalyzerModuleFactory.getModuleName(), 
+                                          NbBundle.getMessage(this.getClass(), "IleappAnalyzerIngestModule.not.64.bit.os"),
+                                          NbBundle.getMessage(this.getClass(), "IleappAnalyzerIngestModule.not.64.bit.os"));
+            services.postMessage(ingestMessage);
+            logger.log(Level.INFO, "iLeapp will not run on 32bit operating system");
+            return ProcessResult.OK;
+        }
 
         Case currentCase = Case.getCurrentCase();
         Path tempOutputPath = Paths.get(currentCase.getTempDirectory(), ILEAPP, ILEAPP_FS + dataSource.getId());
