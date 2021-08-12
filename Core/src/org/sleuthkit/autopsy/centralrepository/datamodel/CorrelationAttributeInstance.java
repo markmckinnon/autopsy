@@ -269,16 +269,16 @@ public class CorrelationAttributeInstance implements Serializable {
      * @throws CentralRepoException if the Type's dbTableName has invalid
      *                        characters/format
      */
-    @Messages({"CorrelationType.FILES.displayName=Files",
-        "CorrelationType.DOMAIN.displayName=Domains",
-        "CorrelationType.EMAIL.displayName=Email Addresses",
-        "CorrelationType.PHONE.displayName=Phone Numbers",
-        "CorrelationType.USBID.displayName=USB Devices",
-        "CorrelationType.SSID.displayName=Wireless Networks",
-        "CorrelationType.MAC.displayName=MAC Addresses",
+    @Messages({"CorrelationType.FILES.displayName=File MD5",
+        "CorrelationType.DOMAIN.displayName=Domain",
+        "CorrelationType.EMAIL.displayName=Email Address",
+        "CorrelationType.PHONE.displayName=Phone Number",
+        "CorrelationType.USBID.displayName=USB Device",
+        "CorrelationType.SSID.displayName=Wireless Network",
+        "CorrelationType.MAC.displayName=MAC Address",
         "CorrelationType.IMEI.displayName=IMEI Number",
         "CorrelationType.IMSI.displayName=IMSI Number",
-        "CorrelationType.PROG_NAME.displayName=Installed Programs",
+        "CorrelationType.PROG_NAME.displayName=Installed Program",
         "CorrelationType.ICCID.displayName=ICCID Number",
         "CorrelationType.OS_ACCOUNT.displayName=Os Account"})
     public static List<CorrelationAttributeInstance.Type> getDefaultCorrelationTypes() throws CentralRepoException {
