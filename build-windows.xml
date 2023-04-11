@@ -1,0 +1,93 @@
+<project name="AutopsyTSKTargets">
+    
+    <!-- Directory paths -->
+    <property name="amd64" location="${basedir}/Core/release/modules/lib/amd64" />
+    <property name="x86" location="${basedir}/Core/release/modules/lib/x86" />
+    <property name="x86_64" location="${basedir}/Core/release/modules/lib/x86_64" />
+    <property name="i386" location="${basedir}/Core/release/modules/lib/i386" />
+    <property name="i586" location="${basedir}/Core/release/modules/lib/i586" />
+    <property name="i686" location="${basedir}/Core/release/modules/lib/i686"/>
+    <property name="crt" location="${basedir}/thirdparty/crt" />
+    <property name="tsk_logical_imager_dir" location="${basedir}/Core/release/tsk_logical_imager"/>
+ 
+    <import file="build-windows-installer.xml" />
+    
+    <target name="makeBaseLibDirs" description="Set up folder hierarchy under release/modules/lib">
+        <mkdir dir="${amd64}"/>
+        <mkdir dir="${x86_64}"/>
+        <mkdir dir="${x86}"/>
+        <mkdir dir="${i386}"/>
+        <mkdir dir="${i586}"/>
+        <mkdir dir="${i686}"/>
+    </target>
+    
+    <target name="checkTskLibDirs">
+        <property environment="env"/>	
+        <property name="tskLogicalImager.path" value="${env.TSK_HOME}/win32/Release_NoLibs/tsk_logical_imager.exe" />
+        <property name="win64.TskLib.path" value="${env.TSK_HOME}/win32/x64/Release"/>
+        <!-- <property name="win32.TskLib.path" value="${env.TSK_HOME}/win32/Release" /> -->
+        <available property="tskLogicalImager.exists" type="file" file="${tskLogicalImager.path}" />
+        <available property="win64.TskLib.exists" type="dir" file="${win64.TskLib.path}" />
+        <!-- <available property="win32.TskLib.exists" type="dir" file="${win32.TskLib.path}" /> -->
+    </target>
+
+    <!-- The following copy the libtsk_jni dependencies to the Autopsy
+         folder structure.  libtsk_jni is inside of the JAR file and contains
+         libtsk and the JNI code. -->
+    <!-- copy 64-bit dlls into the installer folder -->
+    <target name="copyWinTskLibs64ToBaseDir" if="win64.TskLib.exists">
+        <fileset dir="${win64.TskLib.path}" id="win64dlls">
+            <include name="*.dll" />
+            <exclude name="libtsk_jni.dll"/> 
+        </fileset>
+        
+        <copy todir="${amd64}" overwrite="true">
+            <fileset refid="win64dlls" />
+        </copy>
+
+        <copy todir="${x86_64}" overwrite="true">
+            <fileset refid="win64dlls" />
+        </copy>		
+    </target>
+
+    <!-- copy 32-bit dlls into the installer folder -->
+    <!-- <target name="copyWinTskLibs32ToBaseDir" if="win32.TskLib.exists">
+        <fileset dir="${win32.TskLib.path}" id="win32dlls">
+            <include name="*.dll" />
+            <exclude name="libtsk_jni.dll"/> 
+        </fileset>
+        
+        <copy todir="${i386}" overwrite="true">
+            <fileset refid="win32dlls" />
+        </copy>
+
+        <copy todir="${x86}" overwrite="true">
+            <fileset refid="win32dlls" />
+        </copy>
+
+        <copy todir="${i586}" overwrite="true">
+            <fileset refid="win32dlls" />
+        </copy>	
+
+        <copy todir="${i686}" overwrite="true">
+            <fileset refid="win32dlls" />
+        </copy>
+    </target> -->
+    
+    <target name="copyTskLogicalImager" if="tskLogicalImager.exists">
+        <fileset file="${tskLogicalImager.path}" id="tskLogicalImager" />
+        <mkdir dir="${tsk_logical_imager_dir}"/>
+        <copy todir="${tsk_logical_imager_dir}" overwrite="true">
+            <fileset refid="tskLogicalImager" />
+        </copy>
+    </target>
+
+    <!-- This gets called from the main build.xml -->
+    <target name="copyLibsToBaseDir" depends="checkTskLibDirs" description="Copy windows dlls to the correct location." >
+        <antcall target="makeBaseLibDirs" inheritRefs="true" />
+        <!-- <antcall target="copyWinTskLibs32ToBaseDir" inheritRefs="true" /> -->
+        <antcall target="copyWinTskLibs64ToBaseDir" inheritRefs="true" />
+        <antcall target="copyTskLogicalImager" inheritRefs="true" />
+    </target>
+
+</project>

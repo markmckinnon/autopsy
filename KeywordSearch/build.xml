@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- You may freely edit this file. See harness/README in the NetBeans platform -->
+<!-- for some information on what you could do (e.g. targets to override). -->
+<!-- If you delete this file and reopen the project it will be recreated. -->
+<project name="org.sleuthkit.autopsy.keywordsearch" default="netbeans" basedir="." xmlns:ivy="antlib:org.apache.ivy.ant">
+    <description>Builds, tests, and runs the project org.sleuthkit.autopsy.keywordsearch.</description>
+    <import file="nbproject/build-impl.xml"/>
+    <import file="../BootstrapIvy.xml"/>
+    <property name="lib" location="release/modules/ext"/>
+    <property name="autopsy-lib" location="../CoreLibs/release/modules/ext"/>
+    <property name="build" location="build/classes"/>
+    <property name="build-test" location="build/test/unit/classes"/>
+    
+    <path id="libs">
+	<fileset dir="${lib}">
+		<include name="*.jar"/>
+	</fileset>
+	<fileset dir="${autopsy-lib}">
+		<include name="*.jar"/>
+	</fileset>
+	<pathelement path="${build}"/>
+	<pathelement path="${build-test}"/>
+    </path>	
+    <target name="get-solr-deployment" description="copy the solr deployment into release"> 
+        <copy  todir="${basedir}/release/solr" >
+            <fileset dir="solr"/>
+        </copy>
+    </target>
+	<target name="get-solr4-deployment" description="copy the solr 4 deployment into release"> 
+        <copy  todir="${basedir}/release/solr4" > <!-- for embedded Solr 4 -->
+            <fileset dir="solr4"/>
+        </copy>
+    </target>
+    
+    <target name="get-deps" depends="init-ivy, get-solr-deployment, get-solr4-deployment">
+         <!-- fetch all the dependencies from Ivy and stick them in the right places -->
+        <ivy:resolve log="quiet"/>
+        <ivy:retrieve conf="autopsy"  pattern="${basedir}/release/modules/ext/[artifact]-[revision](-[classifier]).[ext]" />
+	<ivy:retrieve conf="solr-war"  pattern="${basedir}/release/solr4/webapps/solr.war" /> <!-- for embedded Solr 4 -->
+        <ivy:retrieve conf="start-solr"  pattern="${basedir}/release/solr4/start.jar" /> <!-- for embedded Solr 4 -->
+	<ivy:retrieve conf="jetty-libs"  pattern="${basedir}/release/solr4/lib/[artifact]-[revision](-[classifier]).[ext]" /> <!-- for embedded Solr 4 -->
+	<ivy:retrieve conf="slf4j-libs"  pattern="${basedir}/release/solr4/lib/ext/[artifact]-[revision](-[classifier]).[ext]" /> <!-- for embedded Solr 4 -->
+	<ivy:retrieve conf="servlet"  pattern="${basedir}/release/solr4/lib/servlet-api-3.0.jar" /> <!-- for embedded Solr 4 -->
+        <ivy:retrieve conf="jetty-libs"  pattern="${basedir}/release/solr/lib/[artifact]-[revision](-[classifier]).[ext]" />
+        <ivy:retrieve conf="solr-libs"  pattern="${basedir}/release/solr/solr/lib/[artifact]-[revision](-[classifier]).[ext]" />
+        <ivy:retrieve conf="slf4j-libs"  pattern="${basedir}/release/solr/lib/ext/[artifact]-[revision](-[classifier]).[ext]" />
+        <ivy:retrieve conf="servlet"  pattern="${basedir}/release/solr/lib/servlet-api-3.0.jar" />
+    </target>
+    
+    <target name="init" depends="get-deps, harness.init"/>
+       
+     
+    <target name="clean" depends="projectized-common.clean">
+        <!--Override clean to delete jars, etc downloaded with Ivy  
+        or copied in from thirdparty folder.  This way we don't end up with 
+        out-of-date/unneeded stuff in the installer-->
+        <delete  dir="${basedir}/release"/>
+    </target>
+
+    <target name="clean-all" depends="clean" description="Clear Ivy cache.">
+        <ivy:cleancache/>
+    </target>
+    
+    <target name="test-unit" depends="init, test-init, test-build">
+        <junit fork="on" haltonfailure="yes" dir=".">
+            <formatter type="plain" usefile="false" />
+                <classpath refid="libs"/>
+                <test name="org.sleuthkit.autopsy.keywordsearch.KeywordSearchTestSuite" />
+        </junit>
+    </target>
+    
+    <target name="compile" depends="projectized-common.compile">
+        <antcall target="copy-bundle" />
+    </target>
+
+    <target name="copy-bundle">
+        <!-- the externalized strings in 'src' are in both the java files as annotations and in the Bundle.property files.
+          The strings get merged during compilation.  This target copies that merged file into src so that it can be checked
+          in and used as a basis for translation efforts -->
+        <copy todir="src">
+            <fileset dir="build/classes">
+                <include name="**/Bundle.properties"/>
+            </fileset>
+            <globmapper from="*" to="*-MERGED"/>
+        </copy>
+    </target>
+
+</project>

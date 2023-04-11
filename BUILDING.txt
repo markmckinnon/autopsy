@@ -1,0 +1,129 @@
+                  Last Updated: 5 August 2020
+
+This file outlines what it takes to build Autopsy from source.
+
+Note that it currently only works out-of-the-box on Windows.  We
+are working on getting the process working under non-Windows systems.
+It generally works, but needs some custom mangling to find the
+correct C libraries.
+
+
+STEPS:
+1) Get Java Setup
+
+1a) Download and install JDK version 1.8.  For the current version of JavaFX 
+that we use, you'll need 1.8.0_66 or greater. You can now use 32-bit or 64-bit, 
+but special work is needed to get The Sleuth Kit to compile as 64-bit.
+
+Autopsy has been used and tested with the following OpenJDK build
+(https://github.com/ojdkbuild/ojdkbuild/releases/tag/java-1.8.0-openjdk-1.8.0.222-1.b10).
+
+
+1b) Ensure that JDK_HOME is set to the root JDK directory.
+
+1c) (optional) Download and install Netbeans IDE (https://netbeans.apache.org/download/index.html)
+Note: Netbeans IDE is not required to build and run Autopsy,
+but it is a recommended IDE to use for development of Autopsy modules.
+
+1d) (optional) If you are going to package Autopsy, then you'll also
+need to set JRE_HOME_32 to the root 32-bit JRE directory and/or JRE_HOME_64
+to the root 64-bit JRE directory. 
+
+1e) (optional) For some Autopsy features to be functional, you need to add the 
+    java executable to the system PATH.
+
+
+2) Get Sleuth Kit Setup
+2a) Download and build a Release version of Sleuth Kit (TSK) 4.0. See
+    win32\BUILDING.txt in the TSK package for more information. You need to 
+    build the tsk_jni project. Select the Release Win32 or x64 target,
+    depending upon your target build. You can use a released version or download 
+    the latest from github:
+- git://github.com/sleuthkit/sleuthkit.git
+
+2b) Build the TSK JAR file by typing 'ant dist' in
+    bindings/java in the
+    TSK source code folder from a command line. Note it is case
+    sensitive. You can also add the code to a NetBeans project and build
+    it from there, selecting the dist target.
+
+2c) Set TSK_HOME environment variable to the root directory of TSK
+
+2d) On Non-Windows systems, you will need to do a 'make install'
+from the TSK root directory to install the libraries and such in
+the needed places (i.e. '/usr/local').
+
+2e) Build the TSK CaseUco jar file by running 'ant' in
+    the case-uco/java folder of the TSK source folder. You can also add the
+    code to a NetBeans project and build using the regular 'build' action.
+
+3) For Windows builds, GStreamer must be setup. GStreamer is used to view video
+files. You can either download it and install it, or you can copy it from the
+'thirdparty/gstreamer' folder. Both 32-bit (x86) and 64-bit (x86_64) versions
+are included, so feel free to exclude what you want. You will need to unzip the
+'lib/gstreamer-1.0/libgstlibav.zip' file into it's residing
+folder. You will also need the 'bin' and 'lib/gstreamer-1.0' paths included in
+your Windows PATH environment variable.
+
+NOTE: This has not been fully tested in non-Windows environments
+yet, so we don't have instructions for that yet.
+
+
+4) Get Autopsy source.
+4a) If you are not planning to contribute to Autopsy development, clone a read-only repository:
+
+git clone https://github.com/sleuthkit/autopsy.git
+
+4b) If you plan to contribute and submit patches, login to Github and create your own Autopsy fork.
+Then, clone your fork and work on that source-tree:
+
+git clone https://github.com/YOUR_USERNAME/autopsy.git
+
+You will be able to submit patches by committing and pushing changes to your fork 
+and by submitting pull requests to the main Autopsy repository.
+
+5) Compile Autopsy
+5a) Using Netbeans IDE:
+- Start NetBeans IDE and open the Autopsy project.
+- Choose to build the Autopsy project / module. It is the highest level project
+    that will cause the other modules to be compiled.
+
+5b) Without Netbeans IDE (requires JDK and ant >= 1.7.1):
+- From root directory of Autopsy source execute:
+ant
+(to build Autopsy)
+ant run
+(to run Autopsy)
+
+
+BACKGROUND:
+Here are some notes to shed some light on what is going on during
+the build process.
+
+- The Sleuth Kit Java datamodel JAR file has native JNI libraries
+that are copied into it. These JNI libraries have dependencies on
+libewf, zlib, libintl-8, libeay32, and ssleay32 DLL files. On non-Windows 
+platforms, the JNI library also has a dependency on libtsk (on Windows, 
+it is compiled into libtsk_jni).
+
+- NetBeans uses ant to build Autopsy. The build target copies the
+TSK datamodel JAR file into the project.
+
+- On a Windows system, the compile-time ant target copies the 
+dependency libraries into the Autopsy code structure so that they can
+be found when Autopsy is run and packaged.  At run-time, the native
+library inside of the JAR file will be extracted and used. 
+
+- On a Unix system, the ant target copies only the JNI library and
+then relies on the other libraries (libtsk, libewf, zilb, etc.) to
+be installed on the system in their standard locations (i.e.
+/usr/local).
+
+- Every time that you do a source code update of TSK, make sure you
+rebuild both the libtsk_dll, the JAR file, and then rebuild Autopsy 
+so that it copies the latest data model JAR file. 
+
+
+---------------
+Brian Carrier
+carrier <at> sleuthkit <dot> org

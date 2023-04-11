@@ -1,0 +1,8 @@
+caseeventlistener.evidencetag=Evidence
+CentralRepositoryNotificationDialog.bulletHeader=This data is used to:
+CentralRepositoryNotificationDialog.bulletOne=Ignore common items (files, domains, and accounts)
+CentralRepositoryNotificationDialog.bulletThree=Create personas that group accounts
+CentralRepositoryNotificationDialog.bulletTwo=Identify where an item was previously seen
+CentralRepositoryNotificationDialog.finalRemarks=To limit what is stored, use the Central Repository options panel.
+CentralRepositoryNotificationDialog.header=Autopsy stores data about each case in its Central Repository.
+Installer.centralRepoUpgradeFailed.title=Central repository disabled

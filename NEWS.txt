@@ -1,0 +1,1644 @@
+---------------- VERSION 4.20.0  --------------
+Recent Activity Updates:
+- Added Favicons, Profiles and Extensions to Chromium Browsers
+- Added Security Questions/Answers from SAM registry Hive
+
+Data Source Processing
+- Added Jython Support for Data Source Processor modules.
+- Added example Python DSP plugin
+
+Ingest Pipelines
+- Added new DataArtifact ingest pipeline that artifacts will go down.
+- Moved Keyword search functionality for artifacts to the new pipeline.
+
+Linux / Mac Improvements
+- Script to install prerequisites using Homebrew and Debian package. 
+- Script that allows you to install TSK from source
+- Script that sets JAVA home per install
+- Updating Linux and Mac Installation Documentation
+
+Command Line Interface
+- Simplified command line input parameters
+- The -listAllIngestProfiles switch was added
+- The -nogui switch now works.
+- Return codes now reflect if the application failed
+
+Bug Fixes:
+- Solr 8.11.2 Upgrade which includes update to Log4j to version 2.17.1
+- Change Timezone format for Plaso output.
+- Regex fix for Mbox parsing.
+- Portable Case report string index out of range -1 fixed
+- Extracting files, numbering of files and overwriting of files.
+- Image tagging
+- Joda-Time updated from 2.4 to 2.10 -  fixes certain timezone errors
+
+Misc:
+- Update to USB id's.
+- Update Tesseract to 4.10.
+- Moved configuration settings to separate ones that are machine-dependent. 
+- Interesting files and file filters can now exclude certain features, such as folders.
+- Adds host to artifact content viewer.
+- When an OS Account is selected the Other Occurrences tab will no longer show the open case in the case list.
+
+- The Communication window Message Viewer Threads panel layout was cleaned up so that the buttons are visible despite the subject length.
+- Limit ingest inbox messages to first 20 keyword hits
+- GStreamer update to version 1.20.0
+- libheif v1.12.0 replaces ImageMagick
+- Removal of 32bit version of Autopsy
+
+
+---------------- VERSION 4.19.3  --------------
+Bug Fixes:
+- Updates for log4j vulnerabilities. 
+-- Solr 8.11.0 Upgrade
+-- Manual update of log4j to 2.16.0
+-- NOTE: This installer was created with some manual work because Solr 8.11.1 was not on maven at the time of building. 
+
+---------------- VERSION 4.19.2  --------------
+GUI Updates:
+- Special handling of Interesting Files and Interesting Results analysis results was removed from the tree and they are now shown as individual nodes. 
+- Updated display of analysis results in the tabular results viewer.
+- Improved algorithm for populating the S(core) column in the tabular results view.
+- Updated the right-click menu options for data artifacts and analysis results.
+- The O(ther Cases) column in the tabular results view and the Other Occurrences content viewer now count cases in the same way.  
+
+Misc:
+- Installed applications are now added to the central repository.
+- The Central Repository ingest module no longer uses the generic Interesting Item analysis result and instead creates more specific Previously Seen, Previously Unseen, and Previously Notable analysis results.
+- Automatic destinations (jump lists) parsing added to the Recent Activity module.
+- French translation of user documentation contributed by github user Seb2lyon.
+
+Bug Fixes:
+- Analysis Results and Annotation content viewers now work when parent is a data artifact.
+- Fixed bug that prevented media attachments from being displayed in the Communications Viewer. 
+- Fixed RegRipper bug to support parsing of ShellBags with non-Latin characters.
+- Assorted GUI responsiveness fixes.
+- Fixed NTFS handling of compressed files that were not fully initialized (via TSK). 
+- Other assorted bug fixes.
+
+
+---------------- VERSION 4.19.1  --------------
+Bug Fixes:
+- Fixed connection leak associated with creating OS Accounts
+- Decreased priority of OS Account Content Viewer
+- Misc bound check fixes in TSK
+
+
+---------------- VERSION 4.19.0  --------------
+Data Source Management:
+- To make managing big cases easier, all data sources are now associated with a host that can be specified in the “Add Data Source” wizard. 
+- Hosts can be grouped by “person”, which is simply a name of the owner.
+- The main tree viewer can be configured to group by person and host. 
+
+OS Accounts:
+- Operating System (OS) accounts and realms are their own data types and no longer generic artifacts. 
+- OS Accounts are created for Windows accounts found in the registry. Domain-scoped realms are not fully detected yet. 
+- NTFS files are associated with OS Accounts by SID. 
+- The Recent Activity module associates artifacts with OS Accounts based on SID or path of database.  Other modules still need to be updated. 
+- OS accounts appear in a dedicated sub-tree of the main tree view and their properties can be viewed in the results view.
+- A new content viewer in the lower right area of the main window was built to display OS account data for the item selected in the results view.
+
+Analysis Result and Data Artifacts
+- All modules make either Analysis Results or Data Artifacts instead of “Blackboard Artifacts.”
+- New “Analysis Result” content viewer shows the results for a given file and its score.
+- The tabular results viewer shows an icon for the aggregate score of a file. 
+- The tree organizes results into "Analysis Results" and "Data Artifacts" instead of simply “Results.” 
+
+Discovery UI:
+- Domain categorization and account types are displayed in Domain Discovery results.
+- The Domain Discovery results view more explicitly shows when a downloaded file no longer exists. 
+- Check boxes are now used to select search options instead of shift-based multi-select.
+
+Ingest Modules: 
+- File metadata updates are batched up before being saved to the case database for better performance. 
+- Parsing of iLEAPP and aLEAPP output was expanded to create communication relationships which can be displayed in the Communications UI. 
+- EML email parsing handles EML messages that are attachments (and have their own attachments). 
+- Domain categorization within Recent Activity can be customized by user-defined rules that can be imported and exported.
+- Account IDs and Installed Applications are added to the Central Repository.
+- Keyword search can be configured to only do OCR and skip non-OCR files.
+
+Miscellaneous:
+- A “Reset Windows” feature was created to help redock windows. 
+- A case-insensitive wordlist of all words in the keyword search index can be exported as a text document.
+- Information from the Data Source Summary panels can be exported as an Excel spreadsheet.
+- More artifacts are added to the timeline and artifacts with multiple time-based attributes are mapped to multiple timeline events.
+- Added option to only perform optical character recognition on certain file types.
+- Heap dumps can be saved to a custom location.
+- More detailed error messages about encrypted disks when they are added.
+- Added file size filter to Ingest Filters.
+
+Performance:
+- Keyword search does not make an explicit commit for each report if ingest is running. 
+- Language ID is performed on a small subset of a file instead of the entire file.
+- Recent Activity is more efficient because of TSK changes to file searching (using extension).
+- Embedded file extractor module has been made faster by doing file typing in memory and adding extracted files in batches. 
+- Moved Content Viewers setNode() and isSupported()/isPreferred() code to background threads. 
+- Moved Data Source Summary Panel population code to background threads. 
+- Moved Node/Tree queries to background threads.
+
+Bug Fixes:
+- Fixed embedded file extractor file name escaping bug.
+- Detect VHD files by signature and not extension.
+- Fixed iLEAPP path error.
+- Content viewers UIs are more consistent.
+- Assorted bug fixes are included.
+
+Auto Ingest:
+- The Auto Ingest Dashboard is resizable.
+- Get thread dumps from AID
+- Added beta pause feature that pauses auto ingest for a set amount of time at a scheduled date and time.
+
+---------------- VERSION 4.18.0  --------------
+Keyword Search:
+- A major upgrade from Solr 4 to Solr 8.6.3.  Single user cases continue to use the embedded server.  
+Multi-user clusters need to install a new Solr 8 server and can now create a Solr cloud with multiple servers. 
+-- NOTE: Cases created with Autopsy 4.18 cannot be opened by previous versions of Autopsy.  Autopsy 4.18 can open older cases though. 
+-- See http://sleuthkit.org/autopsy/docs/user-docs/4.18.0/upgrade_solr8_page.html for more details. 
+- Improved text indexing speed by not doing language detection on unknown file formats and unallocated space. 
+
+Domain Discovery:
+- Added details view to Domain Discovery to show what web-based artifacts are associated with the selected domain. 
+- Updated the Domain Discovery grouping and sorting by options. 
+- Added basic domain categorization for webmail-based domains.
+
+Content Viewers:
+- Built more specialized viewers for web-based artifacts.
+
+Data Source Summary: 
+- Added a “Geolocations” tab that shows what cities the data source was near (based on geolocation data).
+- Added a “Timeline” tab that shows counts of events from the last 30 days the data source was used. 
+- Added navigation buttons to jump from the summary view to the main Autopsy UI (for example to go to the map). 
+
+Ingest Modules:
+- New YARA ingest module to flag files based on regular expression patterns. 
+- New “Android Analyzer (aLEAPP)” module based on aLEAPP.  Previous “Android Analyzer” also still exists. 
+- Updated “iOS Analyzer (iLEAPP)” module to create more artifacts and work on disk images. 
+- Hash Database module will calculate SHA-256 hash in addition to MD5.
+- Removed Interesting Item rule that flagged existence of Bitlocker (since it ships with Windows). 
+- Fixed a major bug in the PhotoRec module that could result in an incorrect file layout if the carved file spanned non-contiguous sectors. 
+- Fixed MBOX detection bug in Email module. 
+
+Reporting:
+- Attachments from tagged messages are now included in a Portable Case. 
+
+Misc:
+- Added support for Ext4 inline data and sparse blocks (via TSK fix).
+- Fixed timeline controller deadlock issue 
+- Updated PostgreSQL JDBC driver to support any recent version of PostgreSQL for multi-user cases and PostgreSQL Central Repository.
+- Added personas to the summary viewer in CVT.
+- Handling of bad characters in auto ingest manifest files.
+- Assorted small bug fixes.
+
+
+---------------- VERSION 4.17.0  --------------
+GUI:
+- Expanded the Data Source Summary panel to show recent activity, past cases, analysis results, etc.  Also made this available from the main UI when a data source is selected.
+- Expanded Discovery UI to support searching for and basic display of web domains.  It collapses the various web artifacts into a single view. 
+
+Ingest Modules:
+- Added iOS Analyzer module based on iLEAPP and a subset of its artifacts. 
+- New Picture Analyzer module that does EXIF extraction and HEIC conversion. HEIC/HEIF images are converted to JPEGs that retain EXIF using ImageMagick (replaces the previous EXIF ingest module).
+- Added support for the latest version of Edge browser that is based on Chromium into Recent Activity. Other Chromium-based browsers are also supported. 
+- Updated the rules that search Web History artifacts for search queries.  Expanded module to support multiple search engines for ambiguous URLs.
+- Bluetooth pairing artifacts are created based on RegRipper output.
+- Prefetch artifacts record the full path of exes.
+- PhotoRec module allows you to include or exclude specific file types.
+- Upgraded to Tika 1.23.
+
+Performance:
+- Documents are added to Solr in batches instead of one by one. 
+- More efficient queries to find WAL files for SQLite databases. 
+- Use a local drive for temp files for multi-user cases instead of the shared folder. 
+
+Command Line
+- Command line support for report profiles.
+- Restored support for Windows file type association for opening a case in Autopsy by double clicking case metadata (.aut) file.
+- Better feedback for command line argument errors.
+
+Misc:
+- Updated versions of libvmdk, libvhdi, and libewf.
+- Persona UI fixes: Pre-populate account and changed order of New Persona dialog.
+- Streaming ingest support added to auto ingest.
+- Recent Activity module processes now use the global timeout.
+- Option to include Autopsy executable in portable case (Windows only.)
+- Upgraded to NetBeans 11 Rich Client Platform.
+- Added debug feature to save the stack trace on all threads. 
+
+
+---------------- VERSION 4.16.0  --------------
+Ingest:
+- Added streaming ingest capability for disk images that allow files to be analyzed as soon as they are added to the database. 
+- Changed backend code so that disk image-based files are added by Java code instead of C/C++ code. 
+
+Ingest Modules: 
+- Include Interesting File set rules for cloud storage, encryption, cryptocurrency and privacy programs.
+- Updated PhotoRec 7.1 and include 64-bit version.
+- Updated RegRipper in Recent Activity to 2.8
+- Create artifacts for Prefetch, Background Activity Monitor, and System Resource Usage. 
+- Support MBOX files greater than 2GB.
+- Document metadata is saved as explicit artifacts and added to the timeline. 
+- New “no change” hashset type that does not change status of file. 
+
+
+Central Repository / Personas:
+- Accounts in the Central Repository can be grouped together and associated with a digital persona.
+- All accounts are now stored in the Central Repository to support correlation and persona creation. 
+
+Content viewers:
+- Created artifact-specific viewers in the Results viewer for contact book and call log. 
+- Moved Message viewer to a Results sub-viewer and expanded to show accounts. 
+- Added Application sub-viewer for PDF files based on IcePDF.
+- Annotation viewer now includes comments from hash set hits.
+
+Geolocation Viewer:
+- Different data types now are displayed using different colors.
+- Track points in a track are now displayed as small, connected circles instead of full pins.
+- Filter panel shows only data sources with geo location data. 
+- Geolocation artifact points can be tagged and commented upon.
+
+File Discovery:
+- Changed UI to have more of a search flow and content viewer is hidden until an item is selected.
+
+Reports:
+- Can be generated for a single data source instead of the entire case. 
+- CASE / UCO report module now includes artifacts in addition to files. 
+- Added backend concept of Tag Sets to support Project Vic categories from different countries. 
+
+Performance: 
+- Add throttling of UI refreshes to ensure data is quickly displayed and the tree does not get backed up with requests. 
+- Improved efficiency of adding a data source with many orphan files.
+- Improved efficiency of loading file systems.
+- Jython interpreter is preloaded at application startup.
+
+Misc bug fixes and improvements:
+- Fixed bug from last release where hex content viewer text was no longer fixed width.
+- Altered locking to allow multiple data sources to be added at once more smoothly and to support batch inserts of file data.
+- Central repository comments will no longer store tag descriptions.
+- Account type nodes in the Accounts tree show counts.
+- Full time stamps displayed for messages in ingest inbox.
+- More detailed status during file exports.
+- Improved efficiency of adding timeline events.
+- Fixed bug with CVT most recent filter.
+- Improved documentation and support for running on Linux/macOS.
+
+---------------- VERSION 4.15.0  --------------
+New UI Features:
+- Added Document view to File Discovery.
+- Expanded Context Content Viewer to show if an app accessed a file.
+- Added translation feature to Message Content Viewer.
+- Added waypoint type filter to the Geolocation viewer.
+- Added zoom feature to Indexed Text Content Viewer.
+
+New Ingest Modules Features:
+- New GPX ingest module.
+- New Drone ingest module for DJI drones based on DatCon. 
+- Create artifacts for files opened by Adobe Reader, Windows Media Player, Office Docs (Most Recently Used (MRU) and TrustRecords), 7Zip MRU, WinRAR MRU, Applets, Microsoft Management Console (MMC) via RegRipper.
+
+New Central Repository Features:
+- Central Repository stores account IDs that were previously seen. 
+- Central Repository is enabled by default to store past hashes.  Feature to flag previously seen files is disabled by default. 
+
+Other New Features:
+- Multi-user cases can be created via command line
+
+Bug fixes:
+- Prevent entire application from crashing when gstreamer crashes on videos.
+- Improve Geolocation viewer with large data sets.
+- Fix error with non-sector aligned reads on local disks.
+- Times from Recycle Bin files are now in timeline.
+- Validate timeline events and ignore events too far in the future.
+- Moved some database queries off of UI thread.
+- Remove hard coded sizes from UI that cause issues with other languages.
+
+---------------- VERSION 4.14.0  --------------
+Specialized UIs:
+- New File Discovery UI that allows you to search and filter for certain types of files. 
+- New Map viewer that uses either Bing (when online) or offline map tiles. 
+- Communications UI shows country names for phone numbers and fixed bug in summary panel. 
+- Fixed bugs in timeline filtering. 
+- Refactored backend timeline filtering code based on The Sleuth Kit datamodel changes to remove JavaFX dependency. 
+
+Data Sources:
+- Added limited support for APFS disk images.  Does not include encrypted volumes or ones that span multiple disks.   Uses contribution to The Sleuth Kit from Blackbag Technologies. 
+- New data source processor that parses “XRY File Exports”. 
+
+Content Viewers:
+- Added a new “Context” viewer to show where a file came from.  Currently shows what message a file was attached to or what URL a file was downloaded from. 
+- Added support to seek and change playback speed for videos in “Application” viewer.
+- Improved support for Unicode HTML files in “Application” viewer.
+- Added support for webp image files in “Application” viewer.
+
+Ingest Modules:
+- Keyword Search module uses Decodetect statistical encoding detection for plain text files. Fixes issues with incorrect detection of Japanese files. 
+- Embedded File Extractor module uses statistical analysis to determine encoding of file names in ZIP files. Fixes issues with ZIP files created on Windows Japanese computers. 
+- Solr (Keyword Search module) now uses Japanese-specific tokenization using Kuromoji. 
+- Fixed Shellbags module in RegRipper (used by Autopsy Recent Activity module) to fix parsing errors. 
+- Plaso module no longer generates an error if enabled for non-disk image data sources.  
+- Added support for message attachments that are stored as an external file system file. Expanded Email and Android modules to use this technique. 
+
+General:
+- Fixed crashes by gstreamer when a video is selected.
+- Added initial capability to delete a data source from a case (excludes data in the CR).
+- Changed behavior of portable case menu item to automatically open the case and warn if it was already unpacked. 
+- Fixed bug that caused issues when case metadata had Unicode values. 
+- Added new Attachment APIs to the CommunicationsArtifactHelper class to support attachments stored as external file system files. 
+
+---------------- VERSION 4.13.0  --------------
+General:
+- Switch from Oracle JDK to OpenJDK.
+- Full command line support (case creation, adding of data sources, running ingest, and generating reports). 
+
+Logical Imager:
+- Output can be individual files instead of VHD image (uses less space).
+- More fine grained progress during collection and importing.
+- Log of files and make artifacts.
+- All console messages are saved to a log file too.
+- Improved handling of cancellation when adding results into a case.
+
+Ingest Modules:
+- Added Android support as Python modules for: Android installed apps, Android browser, Facebook Messenger, IMO, LINE, Opera, ORUX Maps, Samsung SBrowser, Skype, ShareIt, TextNow, Viber, WhatsApp, Xender, Zapya.
+- Recycle Bin files are parsed in Recent Activity module, new artifacts are created, and deleted file entries are created at the original location of the deleted files.  Code is based on Mark McKinnon’s RecycleBin module (https://github.com/markmckinnon/Autopsy-Plugins/tree/master/Recycle_Bin).
+- ShellBag registry data is extracted from RegRipper in the Recent Activity module. New artifacts are recreated for the data. Based on Mark McKinnon’s “Parse ShellBags” module (https://github.com/markmckinnon/Autopsy-Plugins/tree/master/Parse_Shellbags).
+- Additional data is extracted about users from SAM hive in Recent Activity module. Data includes password dates, permissions, groups, and full name. Based on Mark McKinnon’s “Parse SAM” module (https://github.com/markmckinnon/Autopsy-Plugins/tree/master/Parse_SAM). 
+- Email ingest module parses EML files. Based on Mark McKinnon’s “EML Parser” module (https://github.com/markmckinnon/Autopsy-Plugins/tree/master/EML_Parser).
+- Fixed bug in MBOX module that caused attachments to have a “_” in the name. 
+- New Plaso ingest module that runs Plaso and generates events for the timeline. 
+- Fixed bug in Email module for VCard files to better parse phone number types. 
+- Keyword Search module waits longer for Solr to start to prevent incorrectly reporting a problem and disabling the feature. 
+- Embedded file extractor module was updated to not report compression bombs for GZIP files. 
+
+Timeline:
+- New approach for storing event data. A dedicated events table exists and is populated as files and artifacts are added to the database. No longer requires an explicit step of populating a local events table.
+- Users can create their own events from the Timeline UI.
+- Filtering was simplified based or existence of tag or hash set hit versus a specific name. 
+
+Communications:
+- Fixed bug that hid contact book entries with duplicate numbers. 
+
+Image Gallery:
+- Fixed bug in schema that caused errors with very long file names.
+
+Report:
+- CASE report is included in a portable case.
+- Image tags are included in portable case.
+- More size options for a packaged portable case.
+- New Infrastructure to support command line-based generation.
+
+Backend:
+- Developers should use new new Blackboard.postArtifact() method to ensure artifact is indexed and added to the timeline. 
+- New classes were created to make it easier to write modules for apps. 
+
+---------------- VERSION 4.12.0  --------------
+Collection
+- Added ability to configure a USB drive to use new logical imager tool.
+- Added logical imager tool that runs on a live Windows computer and saves results to a USB drive.
+- Added ability to import logical imager results into Autopsy as a data source.
+
+Ingest Modules:
+- Changed file type detection so that Tika does not rely only on extension.
+- Email ingest module assigns thread IDs to messages.
+- Android ingest modules store thread ID from their databases.
+
+Content Viewers (lower right of UI):
+- New “Text” viewer that consolidates previous Strings and “Indexed Text” viewers.
+- New “Translation” panel was added to the new “Text” viewer.
+- Added integration with Google and Bing translation (credentials required).
+- Redesigned “Other Occurrences” viewer to have 4th column with details of selected item.
+- Added Willi Ballentin’s “Registry Hive Viewer” panel to the “Application” viewer.
+- Improved HTML viewer to use style sheets and better layout.
+- Added ability to draw a box on a picture while tagging it.
+
+Result Table (upper right of UI)
+- Added paging to all views for faster loading of large data sets.
+- Improved speed of displaying results when a column was sorted.
+
+Reporting
+- Portable cases can contain files marked as Interesting Items
+- Portable cases can be compressed and chunked
+- “Files - Text” report can use either tabs or commas as the delimiter
+- “Files - Text” report better handles Unicode text.
+- Added ability to create a CSV report for the contents of a table
+- HTML report for tagged pictures includes a copy with the overlay box
+
+Communications:
+- Added Account Summary view
+- Added Contacts panel to show all contacts associated with an account.
+- Added Media panel to show media attachments associated with an account
+- Added filter to show accounts if they involved with the most recent messages.
+- Messages can be grouped by thread.
+
+Auto Ingest
+- New Test button was added to help diagnose permission and configuration issues.
+
+Documentation:
+- Created new Triage Standard Operating Procedure (SOP) section to the User Docs
+
+---------------- VERSION 4.11.0  --------------
+New Features:
+
+Adding Data: 
+- Hashes can optionally be entered when adding a disk image data source to a case.
+- Acquisition details can be stored when the data source is added. 
+
+
+Ingest Modules:
+- Added support for Microsoft Edge browser (cookies, history, and bookmarks)
+- Added support for Safari web browser (downloads, cookies, history, and bookmarks)
+- Expanded Chrome browser support to include cache parsing and form/auto fill. 
+- Expanded Firefox browser support to extract form/auto fill fields.
+- Parse Zone.Identifier files to identify the source of files.
+- Added a TSK_SOURCE artifact to downloaded files to  help users trace back to where it came from. 
+- Added support for parsing vCards (virtual cards).
+- Extract more information about Windows user accounts (number of logins, creation date, and last login)
+- Detect more operating system types, which get saved as a TSK_OS_INFO artifact. 
+- Detect Android media cards, which gets saved as a TSK_DATA_SOURCE_USAGE artifact. 
+
+
+UI:
+- The Application content viewer now displays HTML files.
+- Video playback now uses gstreamer on 64-bit systems, which supports more video formats.
+- Pictures can be rotated and zoomed in the Application content viewer.
+- The Other Occurrences content viewer layout was reorganized to make viewing the data easier.
+- New "Data Source Summary" panel shows high-level statistics and details about the data sources in the case. 
+- Data sources are now listed in the data sources tree in alphabetical order.
+- The presentation of finding common properties within a case was revised to group results in a more helpful way.
+
+
+Report / Export: 
+- Portable Cases can be created based on tagged data.  These cases contain a subset of the case data and can be opened anywhere. 
+- Users can now choose tabs or commas as the delimiter for a files report.
+- Case notes are included in the HTML report.
+
+
+Other:
+- Added a new file type that allows module writers to specify a file based on its byte range. 
+- Data sources can be analyzed and have a CASE/UCO report generated using only the command line. 
+
+
+Bug Fixes:
+- Decreased the time required to execute inter-case common properties searches of the Central Repository.
+- Assorted small bug fixes are included.
+
+
+---------------- VERSION 4.10.0  --------------
+New Features:
+- Users can now view information on all cases/data sources in the Central 
+Repository.
+- SSID, MAC address, IMEI, IMSI, and ICCID properties can now be added to the 
+Central Repository by the Correlation Engine ingest module. 
+- The Correlation Engine ingest module can be configured to flag any occurrences 
+of SSID, MAC address, IMEI, IMSI, and ICCID properties that have been previously 
+added to the Central Repository.
+- File type filtering for common properties search is now supported.
+- Common properties search results can now be viewed by case and data source 
+within the case.
+- Users can now search the Central Repository for property instances with a 
+given value.
+- OCR text extraction for keyword search now supports languages other than 
+English, if language packs are installed.
+- Added the ability for examiners to select the time zone for displaying dates.
+- Custom headers and footers can now be added to HTML reports.
+- Added ability to either enter or generate hashes of image data sources.
+- Data sources that fail hash verification are now flagged with interesting 
+item artifacts by the Data Source Integrity ingest module (formerly known as the 
+E01 Verifier ingest module).
+- Added a report module to export data in CASE/UCO format.
+- Ingest filters and interesting file sets can now be defined with multiple 
+extensions included in a single condition/rule.
+
+Bug Fixes:
+- The Images/Videos Gallery now works for multi-user cases.
+- Duplicate interesting item and EXIF metadata artifacts are no longer created 
+when you run the modules that generate them more than once.
+- The Application content viewer now displays SQLite table column names even 
+when the table is empty.
+- Assorted small bug fixes are included.
+
+
+---------------- VERSION 4.9.1  --------------
+Bug Fixes:
+- Fixed possible ingest deadlock from Image Gallery database inserts.
+- Image Gallery does not need lock on Case DB during pre-population, which makes UI more responsive.
+- Other misc Image Gallery fixes.
+
+
+---------------- VERSION 4.9.0  --------------
+New Features:
+- Removed data from table that are time intensive and can be found in content viewers (such as hash set hits)
+- Added ability to find common items (files, emails, etc.) between current case and past cases using the Central Repository. 
+- Added ability to ignore common items that exist in a large number of cases by using Central Repository data. 
+- Data is validated and normalized before being entered into the Central Repository.
+- Allow users to specify that an ad-hoc keyword search should not be saved to database
+- New “Annotations” content viewer that shows all tags and comments associated with an item
+- Added 2 icons to the table to show the item’s score (if it is notable or suspicious) and if it has a comment. 
+- Added column to the table to show previous number of occurrences. 
+- Tags are now associated with the user (in a multi-user environment) and you can hide other people’s tags
+- New Display options area that unifies various new settings. 
+- Hash sets can be copied into the user’s config folder (AppData), which makes it easier to run Autopsy from a Live Triage USB and not care about what drive letter it gets.
+- Image Gallery stores its groups and seen status in Case DB instead of its own. 
+- Image Gallery works better in multi-user setups and reloads the database when other nodes add data sources.
+- Image Gallery saves which user saw a group and gives user option of seeing only their unseen groups or all unseen groups. 
+- Saves last export location and pre-populates that in the file picker
+- Provide feedback about why some right click options are disabled (ingest is running, not file content, etc.)
+
+Bug Fixes:
+- Substring keyword search is more accurate (now uses regular expression)
+- New text extractor for SQLite that better deals with full text search tables
+- Better deal with Unicode text files that do not have Byte Order Marker
+- Embedded file extractor module is now faster because it uses a different 7ZIP API.
+- Fixed various HTML report bugs
+- Duplicate hash set hits are not created when you run the Hash Ingest Module twice. 
+- Auto ingest (in Experimental) scan times of input folders is faster.
+
+
+---------------- VERSION 4.8.0  --------------
+New Features:
+- Data Source Grouping:
+-- The case tree view can now be grouped by data source.
+-- Keyword and file search can now be restricted to a data source.
+- Central Repository / Correlation:
+-- New common files search feature that finds files that exist in multiple devices in the same case. 
+-- The Other Occurrences content viewer now shows matches in the current case (in addition to central repository).
+-- Central repository options panel now shows cases that are in repo.
+- A comment about a file can be created and saved in the central repository so that future cases and see it. 
+- Keyword Search:
+-- Can enable OCR text extraction of PDF and JPG files using Tesseract. 
+-- Keyword search module normalizes Unicode text. 
+-- Keyword search module uses ICU to convert text files that do not have a BOM.
+- Tagging: 
+-- Tagging menu changed to have user defined tags at top and "quick tag" removed one level of menus.
+-- New "Replace Tag" feature to change the tag on an item.
+- Other:
+-- SQLite tables can be now be exported to CSV files.
+-- An interesting file artifact is now created when a "zip bomb" is detected.
+-- An object detection ingest module was added to the Experimental module. It requires an OpenCV trained model. 
+
+Bug Fixes:
+- Expanding the case tree is more efficient.
+- Improved "zip bomb" detection.
+- Assorted small bug fixes are included.
+
+
+---------------- VERSION 4.7.0  --------------
+New Features: 
+- A graph visualization was added to the Communications tool to make it easier to find messages and relationships.
+- A new "Application" content viewer (lower right) that will contain file-type specific viewers (to reduce number of tabs).
+- New viewer for SQLite databases (in Application content viewer)
+- New viewer for binary PLists (in Application content viewer)
+- L01 files can be imported as data sources.
+- Ingest filters can now use date range conditions for triage. 
+- Passwords to open password protected archive files can be entered (by right clicking on the file).
+- Reports (e.g., RegRipper output) generated by ingest modules are now indexed for keyword search.
+- PhotoRec carving module can be configured to keep corrupted files.
+- Sector size can be specified for local drives and images when E01 is wrong or it is a raw image. 
+- New data source processor in Experimental module that runs Volatility, adds the outputs as files, and parses the reports to provide INTERESTING_FILE artifacts.
+- Assorted small enhancements are included.
+
+Bug Fixes:
+- Memory leaks and other issues revealed by fuzzing the The Sleuth Kit have 
+been fixed.
+- Result views (upper right) and content views (lower right) stay in synch when switching result views.
+- Concurrency bugs in the ingest tasks scheduler have been fixed.
+- Assorted small bug fixes are included.
+
+
+---------------- VERSION 4.6.0  --------------
+New Features: 
+- A new Message content viewer was added to make it easier to view email message contents. 
+- A new Communications interface was added to make it easier to find messages and relationships. 
+- Hash sets can be centrally stored and shared in the Central Repository. 
+- New Encryption Detection module that will flag possibly encrypted files.
+- Can more easily run Autopsy from a USB drive and leave few traces on target system.
+- Tag definitions now have a "notable" property.  The Central Repository uses this to mark files as notable. 
+- Large slack files are now file typed. 
+- The maximum number of Solr connections and ingest threads have increased. 
+- Periodic keyword search will dynamically change based on how long queries are taking. 
+- Users can change the amount of memory allocated to the application. 
+- The amount of memory required for processing keyword hits has been reduced.
+- Layout of HTML reports has been modified make it easier to open. 
+- "Databases" was added to File Type by Extension view. 
+- Users can now enter more information about cases including examiner, organization, etc.
+- New dialog to open multi-user cases that allows for searching. 
+- Auto ingest metrics are collected and displayed in dashboard.
+- Auto ingest module that extracts disk images from archive files. 
+- Keyword search has been made more responsive to both search and ingest job cancellation.
+- Number of log files to keep before rollover is now configurable. 
+- Preliminary changes to make Linux and OS X builds easier. 
+
+Bug Fixes:
+- Memory leaks and other issues revealed by fuzzing the SleuthKit have 
+been fixed.
+- Memory issues caused by Tika are fixed (by upgrading to 1.17)
+- Assorted small enhancements and bug fixes are included.
+
+
+---------------- VERSION 4.5.0  --------------
+- Memory usage has been reduced to improve support for very large cases.
+- The central repository and correlation engine introduced in version 4.4.1 have 
+been moved to Core Autopsy, so they are available without doing a plugin 
+installation. This optional feature includes a database (SQLite or PostgreSQL) 
+and logic for correlating artifacts across cases. Results are displayed using an 
+Interesting Artifacts branch of the Interesting Items tree and an 
+Other Occurrences content viewer.
+- Message results with attachments can now be seen be seen by browsing to the 
+source file in the Data Sources tree, which will display the messages in the 
+results view to the right. Any messages with attachments will be shown under 
+the source file in the tree, and the attachments can be seen in the result view 
+by selecting the message.
+- Volume nodes in the tree view and results view now have a context menu item 
+that displays a file system properties dialog.
+- Nodes in the tree view now have the same context menu items as nodes in the 
+results view.
+- Virtual directory nodes in the tree view are distinguished in the Data Sources 
+tree by the addition of a "V" to their icon.
+- Credit card number search has added logic to reduce false positives.
+- A new version of the automated ingest dashboard has been added to allow 
+insight into pending, running and completed automated ingest jobs in automated 
+ingest Examiner mode.
+- All occurrences of "Known Bad" in the user interface have been changed to 
+"Notable."  
+- Assorted small enhancements and bug fixes are included.
+
+---------------- VERSION 4.4.1  --------------
+- A new central repository feature has been added to the optional 
+CentralRepository plug-in (NetBeans module); this optional feature includes a 
+database (SQLite or PostgreSQL) and logic for correlating artifacts across 
+cases; results are displayed using an Interesting Artifacts branch of the 
+Interesting Items tree and an Other Data Sources content viewer. 
+- Case deletion is now done using a Case menu item and both single-user and 
+general (not auto ingest) multi-user cases can be deleted.
+- Results viewer (top right area of desktop application) sorts are persistent 
+and can be applied to either the table viewer or the thumbnail viewer. 
+- Content viewers (bottom right area of desktop application) now resize 
+correctly.
+- The View Source File in Directory context menu item now works correctly.
+- Tagged image files in the HTML report are now displayed full-size.
+- Some general UI responsiveness issues have been addressed. 
+- Some potential deadlocks during ingest have been eliminated.
+- Assorted small enhancements and bug fixes are included.
+
+---------------- VERSION 4.4.0  --------------
+Improvements:
+- Keyword search supports regular expressions that include spaces.
+- Improvements to keyword search highlighting and standard regular expressions.
+- User can edit keyword lists.
+- Simultaneous acquisition of a sparse VHD from a USB device during analysis. 
+- Support for ingest profiles that combine file ingest filters with ingest 
+module settings.
+- Artifact attributes can be marked to indicate discovery by multiple tools.
+- Import/export of interesting files set membership rules.
+- High DPI display support added.
+- Support for application service plug-in modules (Java only).
+- Progress dialogs for case create/open/close/delete operations that support 
+cancellation of create/open operations and cancellation of the opening of case 
+resources by individual application services. 
+- Coordination service now used for all multi-user cases, not just auto 
+ingest cases; e.g., any open multi-user case cannot be deleted by another user.
+- Updated Recent Activity ingest module to use RegRipper 2.8 plugins. 
+- Updated version of Tika used for extracting text.
+- Updated version of POI used for extracting embedded MS Office documents.
+- Ability to customize HTML report logo.
+- Assorted small enhancements and bug fixes.
+
+---------------- VERSION 4.3.0  --------------
+Improvements:
+- Support for slack space on files (as separate virtual files) to enable keyword searching and other analysis. 
+- Simple mode for the file extension mismatch module that focuses on only only multimedia and executable files to reduce false positives. 
+- New view in tree that shows the MIME types. 
+- Tagged items are highlighted in table views.
+- Ordering of columns is saved when user changes them. 
+- Support for Android devices with preloaders (uses backup GPT)
+- Support for images with no file systems (all data is added as unallocated space)
+- User can bulk add list of keywords to a keyword list.
+- New "Experimental" module (activate via Tools, Plugins) with auto ingest feature.
+- Assorted bug fixes and minor enhancements. 
+
+
+---------------- VERSION 4.2.0  --------------
+Improvements:
+- Credit card account search.
+- Encoding/decoding of extracted files to avoid anti-virus alerts/quarantine.
+- Ingest history (start time, end time, status, which versions of which ingest 
+modules were run). 
+- Ingest history used to warn before doing redundant analysis. 
+- Options panel for managing custom tag names.
+- Options panel for setting external viewer associations.
+- Keyboard shortcut for applying Bookmark tags.
+- Improved PhotoRec carver ingest module cancellation responsiveness.
+- Results content viewer formats dates instead of showing raw seconds since 
+epoch.
+- Update to PostgreSQL 9.5.
+- Assorted bug fixes and minor enhancements. 
+
+---------------- VERSION 4.1.1  --------------
+Bug Fixes:
+- Restored ability of Python modules to import standard Python libraries. 
+
+---------------- VERSION 4.1.0  --------------
+Improvements:
+- New list view in Timeline tool
+- VMWare virtual machine files (vmdk) and Microsoft Virtual Hard Drives (vhd) can be added as data sources.
+- New core ingest module detects vmdk and vhd files embedded in other data sources and adds them as data sources.  
+- Text associated with artifacts posted to the blackboard is indexed and searched for keywords.
+- Custom (user-defined) blackboard artifact and attribute types are displayed in the UI and included in reports.
+- Additional Autopsy-defined custom file type definitions for assorted media file types have been added.
+- The File Metadata content viewer displays MIME type.
+- File size and MIME type conditions can be specified for interesting files set membership rules.
+- File size and MIME type conditions can be specified for file searches by attributes. 
+- Local/GMT time preference is used in reports. 
+- User has option to choose display name for logical/local file set data sources.
+- Virtual directories can be tagged.
+- Improved KML reports that include all geospatial artifacts posted to the blackboard. 
+- Assorted bug fixes and minor enhancements. 
+
+---------------- VERSION 4.0.0  --------------
+Improvements:
+- Collaboration supported by optional multi-user cases with centralized data and services
+- New image gallery feature
+- Directory tree does not collapse if expanded and data sources or files are added
+- Assorted bug fixes and minor enhancements 
+
+---------------- VERSION 3.1.3  --------------
+Improvements:
+- New Embedded File Extractor module that incorporates ZIP file module and extracts images from Office documents
+- Views area counts updates when ZIP files and such are found
+- Updates to python scripting for new version of Python, scripts are reloaded each time ingest is run, and errors are better shown.
+- Updated right click actions to be consistent across all file types
+- Changed logic of Interesting Files module to look for substrings of parent path. 
+- Lots of minor fixes and enhancements
+
+
+---------------- VERSION 3.1.2  --------------
+Improvements:
+- New PhotoRec carving ingest module
+- Regripper output is available as a report instead of TOOL_OUTPUT artifact
+- Updated version of RegRipper
+- New STIX/Cybox report module (manually run after image has been analyzed)
+- File type module supports user defined file types and can alert when they are found
+- More artifacts are extracted from registry
+- Metadata tab in lower right now also shows istat (TSK) output for more metadata details
+- User docs were moved online (http://sleuthkit.org/autopsy/docs/user-docs/3.1/)
+
+---------------- VERSION 3.1.1  --------------
+Improvements:
+- New time line feature
+- New Interesting Files module
+- Added support for Python modules
+- Updated HTML report
+- Media Content viewer uses blackboard artifacts and detects PNG by sig.
+- New logo
+
+Bug Fixes:
+- Adding local disk errors
+- ZIP files inside of RAR files are properly extracted
+ 
+
+---------------- VERSION 3.1.0  --------------
+Numerous changes have gone into this long-awaited major release.
+
+Improvements:
+- Multi-threaded pipelines
+- File type ingest module
+- File extension mismatch ingest module
+- Android ingest module
+- KML report module
+- Tags can be deleted
+- Hash databases can be created and maintained
+
+
+
+---------------- VERSION 3.0.10  --------------
+Bug Fixes:
+- Fixed 64-bit CRT dlls.  No other logic changes. 
+
+---------------- VERSION 3.0.9  --------------
+Bug Fixes:
+- Regular expression keyword search works on file names.
+- Fixed thunderbird parser for subject and dates
+- Fixed errors in hex viewer 
+
+Improvements:
+- Enhanced reporting on keyword search module errors
+- Updated SQLite to 3.8.0
+- More lazy loading to help performance with big folders and sets of files 
+- Times can be displayed in local time or GMT
+- New "EnCase-style" report that lists files and metadata in tab delimited file
+- Changed report wizard to make one report at a time
+- report improvements (only regenerate if data exists)
+- more error messages if recent activity module fails
+- more error checking in recent activity module and don't bail as quickly
+- Cleanup of recent activity module
+- better handle if ingest module throws exception during init()
+- do not run ingest if any module failed to init()
+- Added FILE_DONE event to ingest manager
+- Added search engine parsers for linkedin, twitter, and facebook
+- HTML text is better formatted
+- Report generation performance
+- HTML parser is skipped for files > 50MB. 
+- Removed xdock definitions -> some claim this helps with memory problems
+
+
+
+
+---------------- VERSION 3.0.8  --------------
+Bug Fixes:
+- Fixed installer bug on Windows. No other code changes. 
+
+---------------- VERSION 3.0.7  --------------
+
+New features:
+- 64-bit support (JavaFX for video)
+- Multi-select
+- different sized thumbnails
+- Custom tags persist across runs of the app
+- RegRipper is run on each hive and raw output is available. 
+- Metadata content viewer
+- Basic sanity check when adding images to see if parts could be missing.
+
+
+Improvements:
+- EXIF module uses only signatures
+- File size View does not show unalloc files
+- Tagged files in report show more data
+- Updated test scripts
+- Better OS X look and feel
+
+
+Bugfixes:
+- Several -> Didn't keep good track in this file. 
+- Error messages from adding disk to database are better displayed.
+- RecentActivity better reports errors parsing data
+
+
+---------------- VERSION 3.0.6  --------------
+
+New features:
+- Logical files and folders support
+- New file views in directory tree to view: deleted, executable, archive files and files by size
+- ext4 and yaffs2 support (via TSK 4.1.0)
+
+Improvements:
+- Improvements to tagging of files and keyword search results
+- Any file and folder can be selectively ingested using the directory tree view
+
+Bugfixes:
+- Keyword Search: fix when Solr does not cleanly shutdown
+- fix for "Process Unallocated Space" option doesn't do anything
+- fixed result viewer for "File Search by MD5 Hash"
+- fix Solr, Timeline and RecentActivity issues with java 7.0.21 
+- Views->Recent Files showing inconsistent results when clicked many times
+- reduced memory usage in Timeline
+
+
+---------------- VERSION 3.0.5 --------------
+
+New features:
+- Archive extractor ingest module (uses 7zip)
+- Timeline (Beta)
+
+Improvements:
+- Sleuthkit-4.0.2 and libewf-20130128
+- improved image loading in Media View and Thumbnail View (faster loading, handles large files better)
+- improve Keyword Search file indexing (use detected mime-type instead of file extension)
+- exif module - better jpeg detection using signature and not only file extension.
+- show children counts in directory tree
+- Ingest Message Inbox showing which messages are new better
+
+Bugfixes:
+- fixed memory leaks in "Add Image"
+- The "media view" tab is inactive for deleted files (#165)
+- show error message in hex and string viewer if specific offset of a file could not be read.
+- file search actions not always enabled when new case is open.
+- fixed directory tree history being reset when tree is refreshed.
+
+---------------- VERSION 3.0.4 --------------
+
+New features:
+- Results and files can be tagged with custom tags and reported on them.
+- New notification area for error reporting (bottom right).
+
+Improvements:
+- Tweaked memory settings to eliminate out-of-memory errors.
+- Faster application launch time.
+- Netbeans RCP upgrade from 7.2.1 to 7.3
+- Upgrade from Java 6 to Java 7
+
+Bugfixes:
+- fixed DLL dependency version issue causing Autopsy not to launch on some systems
+- fixed bug when keyword search ingest would search also images previously ingested, creating duplicate results
+- fixed crash and hang in html and excel report generation, due to special characters present
+- fixed cancellation when creating file or result bookmark
+- fixed text not being extracted and searched from all MS Office documents  (such as docx, xlsx and pptx extensions)
+- fixed Exif meta-data extraction in Exif ingest module
+
+
+---------------- VERSION 3.0.3 --------------
+
+*Note: Due to major changes in Keyword search module indexing this release is not fully backward compatible.
+As a workaround, you will need to rebuild index by re-running Keyword Search ingest on Cases created with previous versions.
+
+Improvements:
+- Upgrade to Solr4.0 / Tika 1.2: Improved performance and highlighting
+- Remake of reporting UI and functionality
+- Significant increase in reporting speed
+- New option to keep the most specific file viewer (default) or the lastly used viewer active.
+
+
+Bugfixes:
+- Fixed bug that caused the ends of large amounts of text to not be indexed (occurs mostly in unallocated space).
+- Fix scrolling to first keyword hit when Text View is first loaded
+- Imported keyword lists are now always enabled for ingest by default
+
+
+---------------- VERSION 3.0.2 --------------
+
+New features:
+- Extraction of all unallocated blocks as a single file
+- Results bookmarks with comments and basic bookmark reporting
+- Hashkeeper hash database support
+
+Improvements:
+- File Ingest: minimized file queuing time and memory usage, also improving ingest stability
+- Jump to arbitrary page in Thumbnail View
+- Add Image Wizard - better work-flow, better device size reporting, info on currently processed directory
+- Reporting: reorganized columns, sorted by 1st column, added logo, better styling
+
+Bugfixes:
+- fixed periodic keyword search during ingest, when it would only search max. 2 times
+- fixed Downloads "target" in Recent Activity
+- fixed missing hash and keyword search hits in reports
+- fixed deselecting NSRL database for hash ingest
+
+
+---------------- VERSION 3.0.1 --------------
+
+New features:
+- Physical and logical disk devices discovery in Add image wizard
+
+Improvements:
+- Significant performance improvements when adding images.
+- Slight improvements in UI performance for large number of results.
+- Improved stability when running ingest on multiple images.
+- Removed limit on number of results displayed.
+- Thumbnail viewer - added paging and removed limit of images.
+- Better HTML report navigation, handling large reports better.
+- Netbeans RCP upgrade from 7.2 to 7.2.1
+- Build scripts enhancements to include module version tracking.
+
+Bugfixes:
+- Fixed reading content from multiple file attributes (NTFS, HFS).
+- Add Extract action to Unalloc content file nodes (per file).
+- Fixes bugs with case re-opening.
+- UI fix for keyword search box when case is changed.
+- Enable user to select any image file extension when opening image.
+- Thunderbird parser module fixes.
+- Reporting fixes: added missing artifacts (keyword search, hash hits, file bookmarks).
+
+
+---------------- VERSION 3.0.0 --------------
+New features:
+- Using Sleuthkit 4.0.0
+- Integrated plugin installer. 
+- New options menu to globally access module options.
+- Added custom ingest module loader and ingest module auto-discovery
+
+Improvements:
+- Updated ingest framework APIs.
+- Merged the main modules into Autopsy-Core and Autopsy-CoreLibs.
+- Improved logging infrastructure.
+- Improved configuration infrastructure.
+- Keyword search: upgraded Lucene from 34 to 36.
+- Build system improvements.
+- Updated documentation.
+
+Bugfixes:
+- UI selection fix in Content and Result viewer
+- UI fixes in Hash Database and Keyword Search options.
+- Excel report export produced corrupt files sometimes.
+- Fix for Keyword Search sometimes not property initializing when application starts.
+
+3.0.0b5 (September 12, 2012)
+New features:
+- Added international string extraction from unknown file types.
+- Removed size limitations of large files for keyword searching.
+- Added full html parsing and extraction (including comments, scripts, meta tags, etc).
+- Added support for indexing and searching disk images that have no volume and file system.
+- Solr (3.6.1) and Tika (1.0) upgrade.
+- Search a file by hash GUI feature and search other files with same hash.
+- Web search query text extraction from popular search engines.
+- Exif metadata extraction from jpeg files.	
+- Netbeans RCP platform upgrade (7.2).
+- Basic file bookmarks support.
+- Body file report.
+- Improved UI.
+- Updated Ingest Module API.
+
+Bugfixes:
+- Keyword search memory usage improvements.
+- Directory tree now shows which directories have no children before user clicks.
+- Fixed bug when recent cases would not get updated.
+- Fixed a bug when sometimes a case would get deleted.
+- Fixed occasional Media View crashes.
+
+3.0.0b4 (June 29, 2012)
+Funded by US Army Intelligence Center of Excellence (USAICoE):
+New Features:
+- MBOX parsing 
+- Better lnk file parsing
+Bug Fixes:
+- Included needed jar file for Recent Activity (Issue #52).  
+- Fixed error handling from ingest (Issue #53).
+
+3.0.0b3 (June 12, 2012)
+New Features (Funded by US Army Intelligence Center of Excellence (USAICoE)):
+- Ingest manager runs triage/ingest task after disk is added.
+- Basic keyword search (indexed via SOLR)
+- Recent activity extract (web artifacts, recent documents, devices, etc.)
+- Improved UI
+
+3.0.0b2 (Nov 9, 2011)
+New Features:
+- New database design
+- Hashlookup / calculation
+- Minor overall improvements
+- NOTE: Cases created with b1 are not supported in b2 (different DB)
+
+3.0.0b1 (Aug 16, 2011)
+- Initial release
+- Windows only
+- Directory tree
+- File Search
+- Table and thumbnail viewer
+
+--------------------------- Version 2.24 --------------------------------
+3/22/10: Bug Fix: resolved issue 2950986 to support HFS directories. 
+
+--------------------------- Version 2.23 --------------------------------
+2/12/10: bug fix: resolved issue 2950693 where previous searches
+were not shown if they used quotes.
+
+2/12/10: bug fix: resolved issue 2932385 where wrong flag was being used
+to do only doing category searching"
+
+2/12/10: bug fix: resolved issue 2779244 where wrong sorter path was
+being used.
+
+--------------------------- Version 2.22 --------------------------------
+10/27/09: Update: Change istat to use -B instead of -b (new change in TSK).
+
+11/19/09: Update: Improved configure script process and error message for
+FILE_EXE check.
+
+11/25/09: Fixed MD5 exe bug when building live CD
+
+12/30/09: Fixed issue 2923857 re: cookie errors for the icon and css file 
+links when cookies are used. 
+
+--------------------------- Version 2.21 --------------------------------
+11/7/08: Bug Fix: Changed case management code to not error when 'dls ...' 
+line was encountered. 
+
+11/14/08: Bug Fix: Fixed bug 2288406 (parsing of new fls -l format when file name searching and deleted file listing)
+
+--------------------------- Version 2.20 --------------------------------
+7/1/08: Update: Updated FAT sizes based on new "special" files.
+
+7/9/08: Update: Updated NTFS processing for orphan files / removed
+ifind -p etc.
+
+7/9/08: Update: Updated mactime and time formats to ISO formats.
+
+9/13/08: Update: Changed usage to new TSK d* to blk* names.
+
+9/26/08: Bug Fix: Input check on host was printing invalid host values 
+w/out encoding HTML entities.  Reported by Russ McRee.
+
+10/01/08: Update: HFS support is enabled if TSK was compiled with 
+support for it.
+
+10/08/08: Bug Fix: Added some more HTML entity escaping to case management
+values (such as description).  Reported by Daniel Medianero.
+
+10/13/08: Update: Added perl version check back into configure, but used
+perl $] variable to do checking.  Based on patch by Joerg Friedrich.
+
+--------------------------- Version 2.10 --------------------------------
+2/20/08: Bug Fix: Added 'tsk' to the path for sorter to find the 'images'
+config file.  Reported by Russell Reynolds.
+
+3/2/08: Update: Modified the adding of disk image process to save a 
+call to mmls (reported by Pope). 
+
+3/2/08: Update: Added more basic control char filtering back into Print(). 
+
+--------------------------- Version 2.09 --------------------------------
+2/4/07: Update: Bind only to localhost network if remote addr is local.  
+Suggested by Markus Waldeck.
+
+4/19/07: Bug Fix: Event sequencer notes for file did not have clock skew
+in the times.  Reported by Len CulBreath.
+
+12/21/07: Update: updated configure and install process for TSK 2.50
+
+1/28/08: Update: Added NSRL support back in.
+
+--------------------------- Version 2.08 --------------------------------
+
+8/23/06: Bug Fix: The configure script did not like TSK directory names
+with a space in them.
+
+8/23/06: Update: The PATH variable is not entirely cleared anymore.
+Instead, it is replaced by the basic bin directories (this was causing
+some problems with Cygwin).
+
+8/31/06: Update: If Autopsy is running under Cygwin, then it will set
+the PATH to contain the basic bin directories.  Otherwise, it is clear
+(original behavior).
+
+
+--------------------------- Version 2.07 --------------------------------
+3/15/06: Bug Fix: Caseman.pm had DATA_DIR instead of DATADIR and a
+concatenation error message occurred.  Reported by Jason DePriest.
+
+5/3/06: Update: Added support for ISO9660 file systems.
+
+5/3/06: Update: Added support for AFF and AFD image formats.
+
+5/03/06: Update: Added image format type to image details screen.
+
+5/3/06: Update: Added hexdump view for file analysis and reports (initial
+patch by Patrick Knight).
+
+5/3/06: Update: Changed number of dashes in reports to 70 instead of 62.
+
+5/4/06: Update: Integrity checking disabled for non-raw image files
+until a specialized tool exists in TSK to abstract the embedded hash
+calculation.
+
+5/8/06: Update: Added support for AFM files.
+
+
+
+--------------------------- Version 2.06 --------------------------------
+05/02/05: Fix: Typo in timeline creation window (reported by Surago Jones).
+
+06/15/05: Update: Added css style sheet and changed some formatting.
+
+08/13/05: Update: Added "utf-8" as HTML type so that TSK unicode
+output will be properly dispayed.
+
+10/13/05: Update: Removed print_output() function contents because
+it broke the Unicode chars.
+
+10/13/05: Update: Require 5.8 version of Perl now (in config and
+in source) because it has best Unicode support.
+
+
+
+--------------------------- Version 2.05 --------------------------------
+03/16/05: Update: Image name is given in the Image Details window
+when adding a new image file.  (Suggested by Surago Jones).
+
+03/17/05: Bug Fix: swap and raw host config entries could not be
+read after the conversion because of a regular expression bug in
+the read  code. (Reported by Surago Jones) (BUG: 1165235)
+
+03/21/05: Bug Fix: When a new host was added to a case with no
+investigator names, then it would prompt you to select a name from
+an empty list.  (BUG: 1167970).
+
+03/25/05: Update: Check return status of rename functions and print
+error if failed.
+
+04/04/05: Bug Fix: A missing volume type message was reported when
+adding a disk image.  The flow of add_img_prep was modified to
+ensure that it was set.  (Reported by Bradley Bitzkowski) (BUG:
+1177042)
+
+04/08/05: Update: A thumbnail of images is shown when selected in the File
+mode. Suggested by and patch by Guy Voncken.
+
+
+--------------------------- Version 2.04 --------------------------------
+10/22/04: Update: Changed the way that NTFS lists directory contents.  No 
+  longer lists the deleted entries from 'fls', only from 'ifind'.  Reduces
+  the inaccurate information. 
+
+02/XX/05: Update: Incorporated new TSK 2 features:
+  - Disk images (split and raw)
+  - new config file formats
+  - moved images and output md5.txt file into one
+
+03/01/05: Update: Changed behavior of some links that created new
+Autopsy Windows
+
+03/05/05: Update: timeline output can be in comma delimited format
+
+03/05/05: Update: Added SSN and credit card seach patterns from
+  Jerry Shenk.
+
+03/05/05: Update: Added temporal data when a note is created.
+
+03/11/05: Update: Changed to new TSK names for srch_strings and img_stat
+
+03/15/05: Update: improved handling of white space around investigator
+names and image names (suggested by Brian Baskin).
+
+
+--------------------------- Version 2.03 --------------------------------
+08/24/04: Update: Added SHA-1 hash to the metadata view.
+
+09/01/04: Update: Added sstrings instead of local version of strings.
+
+09/05/04: Update: Added more help text.
+
+09/06/04: Update: Use the local version of file if TSK version is
+not found.
+
+09/06/04: Update: Added links to the notes and events page after a
+note or event has been created.
+
+09/06/04: Update: Added Unicode extract and search functionality using
+the 'sstrings' tool from TSK.
+
+
+--------------------------- Version 2.02 --------------------------------
+07/19/04: Bug Fix: print_err message in Caseman.lib did not have correct
+Print:: package, which caused an error (BUG: 994199).
+
+07/29/04: Update: Added support for NTFS 'ifind -p' option to find deleted
+files that do not have a name in the parent directory.  
+
+07/29/04: Update: Added a filter to remove duplicate entries from a file
+listing.  Duplicate names with the same name and meta address are 
+removed.
+
+07/29/04: Update: OS X no longer needs the strings script, Autopsy
+will adjust for the different flags.
+
+07/29/04: Update: When a deleted file name is entered into the find 
+directory box, the recover bit is set so the full contents are shown.
+
+
+--------------------------- Version 2.01 --------------------------------
+03/29/04: Update: Changed text for the data integrity option when
+adding a new image.
+
+04/20/04: Bug Fix: Fixed error that occurred when data browsing with
+a raw or swap image.  The TSK usage for these file system types was
+inconsistent and it was fixed in version 1.69.  (BUG: 925382).
+(Reported by Harald Katzer)
+
+05/03/04: Update: Changed regular expression in META so that the
+new recovery listing in FAT istat will not show up as a hyperlink.
+
+05/03/04: Update: Removed usage of '-H' with 'icat' in File.PM.
+
+05/20/04: Bug Fix: Fixed the incorrect error message that was printed
+when installing autopsy with a newer version of TSK than 1.68.
+(BUG: 938909)
+
+05/20/04: Update: Added new feature that allows perl regular
+expressions to be used to find file names.
+
+05/20/04: Update: Added file recovery features to File.pm, Meta.pm,
+and Appview.pm.
+
+05/27/04: Update: Added a space to $REG_ZONE2 so that CYGWIN would
+work if no zone was given (Marcus Muller).
+
+/05/27/04: Update: Added 'p' as an option for the type of a file in the 
+'fls' output and made the $::REG_MTYPE global for the pattern.
+
+05/28/04: Update: Cleaned up code so that commands and directories
+do not have double slashes (//) sometimes. This caused problems
+with CYGWIN (reported by Marcus Muller).
+
+05/28/04: Bug Fix: Keyword search of unallocated space would link to
+incorrect data unit (although the address was correct).  (Reported by
+Jorge Ortiz, David Perez, Raul Siles).  (BUG: 962410).
+
+05/28/04: Update: Updated dcat usage and syntax to reflect changes to
+TSK.  
+
+05/28/04: Update: Changed the messages printed when multiple data units
+were displayed.  Now the number of units or range are given instead of 
+number of bytes.
+
+
+--------------------------- Version 2.00 --------------------------------
+11/25/03: Update: made evidence locker directory names constant (define.pl)
+11/25/03: Update: Started process of re-architecture
+12/2/03: Update: Replaced logo.jpg with Hash the Hound
+12/7/03: Update: Added favicon.ico with Hash
+01/06/04: Update: Changed command line arguments
+01/24/04: Update: made it only a warning if cookie file can't be opened
+02/15/04: Update: Timezone is now optional.  Defaults to local if not given.
+02/15/04: Update: Timezone value optional in () in file listing (prevents
+  parsing errors if incorrect timezone is given
+03/16/04: Bug Fix: Fixed zombie problem by ignoring child signal
+(BUG: 860186)  Reported by Angus Marshall.
+03/18/04: Update: New layout for adding cases, hosts, and images.
+03/18/04: Update: changed HTML to use lowercase values instead of all caps.
+03/18/04: Update: New windows are no longer opened when changing modes.
+03/19/04: Release: Big release with a new redesign and a few other
+  changes (live analysis)
+
+--------------------------- Version 1.75 --------------------------------
+09/22/03: Update: Changed the internal 'get_' functions that parse the
+  URL arguments to error instead of just return 0 when a problem occurs.
+10/22/03: Bug Fix: Check for an investigator name before trying to log
+  to the exec log.  This is a problem when indexing a hash database, an
+  error message is printed because of the null string.  reported by
+  Brian Baskin.
+11/10/03: Update: Improved error message when strings can't be parsed.
+  (Bug: 823081)
+11/15/03: Update: Improved messages in installation script
+11/15/03: Bug Fix: Added 'defined' checks to command output to prevent
+  string errors when command fails.  (BUG 842824)
+11/15/03: Update: Added 'HEIGHT' value to HTML images to make images
+  align better and load faster and with the right size
+11/15/03: Update: Added a timer so that a char is printed every 5 seconds
+  during keyword searching, file type sorting, and MD5 for images.
+
+--------------------------- Version 1.74 --------------------------------
+08/03/03: Bug Fix: Notes could not be added for some files because
+  the HTML code was missing a closing bracket.
+08/18/03: Bug Fix: added POSIX:settz() because some versions of Perl do
+  not use the most recent ENV{TZ} variable when running 'localtime'.  This
+  cause some incorrect times for events in the sequencer.
+08/19/03: Update: NSRL is no longer used with 'sorter' until it is 
+  easier to identify which files in the NSRL are known good and which
+  are known bad.
+08/20/03: Update: Added support for swap and raw images for searching
+  and data unit analysis.
+08/20/03: Update: Added the unit size to the display of the Data Unit
+  mode.
+08/20/03: Update: Search for perl5.6.0 first during install
+08/21/03: Update: Changed use of backticks to pipes for executing commands
+08/21/03: ?: Added a 'sleep(1)' to the pipe to prevent the loss of data
+  that can be seen with perl5.8.0 in the buffer.  This should be fixed
+  in a better way though.
+08/21/03: Update: The exact command executed is now saved to the log
+  directory.
+08/21/03: Update: Changed 'date' regexp to make year optional.
+08/22/03: Update: Added warning if Perl 5.8 is used because of the buffer
+  problem.
+08/22/03: Bug Fix: Fixed some keyword escape values in the search mode.
+08/22/03: Update: Added a new help page on the limitations of keyword
+  searching.  
+08/22/03: Update: Moved the unallocated space and strings file creation
+  to the Image Details view instead of the keyword search window
+  (suggested by: Paul Bakker)
+08/25/03: Update: improved wording of the Add Image window to better
+  explain the mounting point.
+08/26/03: Update: When adding sequencer notes in manually, the time
+  is set to the last note entered to make it easier to add notes from
+  logs and external sources.
+08/26/03: Update: The keyword search display has a final clause that 
+  prints the results even if they are not found in the 'index' method.
+  This prevents any hits from being lost during the analysis of the 
+  output.
+08/26/03: Bug Fix: strings less than 4 chars would not be found before
+  because 'strings' only shows strings that are 4 or more in length
+08/28/03: Update: if more than 1000 keyword hits are found, then a message
+ is reported and the user must choose a new keyword.  This prevents the
+ browser from hanging from a huge HTML table.
+08/28/03: Update: A '.' is printed during the keyword search for each
+  100 hits as a status update.
+
+
+--------------------------- Version 1.73 --------------------------------
+06/10/03: Bug Fix: The '-i day' was not added to the mactime code and
+  caused an error (reported by Cathy Buckman)
+
+--------------------------- Version 1.72 ---------------------------------
+04/09/03: Bug Fix: The Java Script check on the main page broke in 1.71
+  because the document.write was on multiple lines
+04/11/03: Bug Fix: Keyword Search False Hit code had a bug that it
+  would be printed in error and message was improved
+04/22/03: Update: Added examples to case management help file
+05/06/03: Bug Fix: calc_md5 did not need 'o' tag on end of regular
+  expression because it would not work if the method was called more
+  than once.  (Paul Bakker)
+06/01/03: Bug Fix: Some keyword searches with $ in it were failing
+06/01/03: Update: Keyword searches are now saved to a file and can be
+  found in the keyword search main menu
+06/01/03: Update: Changed the format a little of the keyword search
+  menu
+06/01/03: Update: Added grep cheat sheet
+06/03/03: Update: Tables now have alternating colors for file listing 
+  and timeline viewing
+06/03/03: Update: Sequencer mode added
+06/03/03: Update: Sequencer help file added
+06/04/03: Bug Fix: Added 'LANG=C LC_ALL=C' to sorter & mactime to prevent 
+  UTF-8 errors (Debugging help from Daniel Schwartzer)
+06/04/03: Bug Fix: The regular expression for viewing timelines did not
+  allow multiple users to have the same UID (reported by Cathy Buckman)
+06/05/03: Update: Added button for Event Sequencer and added tables to
+  the standard notes reading window
+06/09/03: Update: Added '-i day' flag to mactime for new feature in
+  The Sleuth Kit
+
+--------------------------- Version 1.71 ---------------------------------
+02/27/03: Bug Fix: Regular expression searches w/out a strings file had
+  problems because the '-n' value was being incorrectly calculated.  
+03/17/03: Update: Added more logging to investigator log
+03/17/03: Bug Fix: The case opening was not being logged in the case log
+03/17/03: Update: The current 'mode' tab is also a hyperlink now
+03/17/03: Bug Fix: Fixed bug that did not allow the path for a strings
+  file to have a space in it.
+03/17/03: Update: When no port and remote address are given on the
+  command line, port 9999 and localhost are used.  Documents also
+  updated to reflect new syntax.  
+03/18/03: Update: Use the 'x' repetition operator for ASCII reports
+  instead of a row of dashes.
+03/18/03: Update: Added <NOFRAMES> tag to MAIN_FR and incorporated more
+  '<<EOF' HTML code.
+03/19/03: Update: Added $FIL_NAME function that translates a name to
+  a meta data address using 'ifind -n'
+03/19/03: Update: A directory name can be entered in the $FIL_DIR
+  frame now to jump to a directory or file
+03/19/03: Update: The directory path in $FIL_LIST was changed to have
+  hyperlinks that allow one to jump to a previous directory (using
+  $FILE_NAME)
+03/19/03: Update: Cleaned up HTML code in $FIL_LIST 
+03/20/03: Update: passwd and group files are now imported in timelines
+  by selecting the image - no more inode values
+03/20/03: Update: Cleaned up HTML code in timeline section
+03/21/03: Update: Added '-z' flag to usage of 'file' so that compressed
+  files are opened.  
+03/21/03: Bug Fix: Some special values needed to be escaped in the
+  grep keyword search (for non regular expressions) (\.]^$"-).
+03/24/03: Update: Changed how images are added (symlinks, copies,
+  or moves).  
+03/24/03: Update: Added a file system sanity check when adding one
+03/27/03: Update: Added a check to the 'File Type' mode that extracts
+  just graphic images and makes thumbnails.  
+03/27/03: Update: Added '-i' flag when 'mactime' is run to create the
+  summary file for timelines.
+03/27/03: Update: Added link to summary page with hyper links to actual
+  month for timelines
+03/27/03: Update: Added more HTML table columns for date in timeline view
+03/27/03: Update: Made the 'ifind' process optional in Data Unit and key
+  word searching mode (makes browsing faster)
+03/27/03: Update: Evidence Locker now contains entries for when a case
+  is created or opened.
+03/30/03: Update: Improved the help file for time lines.
+03/31/03: Update: Changed addresses to sleuthkit.org
+
+
+
+--------------------------- Version 1.70 ---------------------------------
+Interface Changes:
+  - Too many to note individually
+  - New windows are created when modes or images are changed
+  - Improved error messages
+  - Can load the unallocated image in the Data Unit Mode
+  - Case management
+
+12/10/02: Update: Help is now a directory and contents can be viewed at
+  any time.  
+01/02/03: Update: Added support for sorter and hfind tools in TASK
+01/02/03: Update: NSRL now requested at startup
+01/02/03: Update: Alert and exclude hash databases are options when making
+  a new host now
+01/09/03: Update: Carriage Returns are now sent if it is a Windows client
+01/09/03: Update: Improved the pre-defined IP keyword search expression
+01/10/03: Update: Changed use of "_new" as target to "_blank"
+01/28/03: Update: Installation and other system directories can now 
+  have spaces and other symbols in them (Dave Goldsmith)
+
+
+--------------------------- Version 1.62 ---------------------------------
+10/07/02: Update: Added File Type to block mode
+10/07/02: Update: Can now add notes to 'dls' image blocks
+10/07/02: Update: One can now view as many consecutive data units as they
+  want in data mode.  Many other changes and updates were done with this
+  as well. (inspired by the Honeynet sotm)
+10/07/02: Update: The File System details view for FAT now has hyperlinks
+  to view the run and follow to the next run. 
+10/09/02: Bug Fix: Removed use of 'use integer' so that large blocks do
+  no turn into '-1' when doing a keyword search (Michael Stone - Loyola)
+
+
+--------------------------- Version 1.61 ---------------------------------
+08/28/02: Update: White space is allowed at the beginning of the morgue file 
+08/28/02: Bug Fix: No error is generated if md5.txt does not exist from 
+  main menu
+08/28/02: Update: Improved error messages 
+08/28/02: Update: Added code to Main Menu to check for Java Script turned on 
+09/19/02: Update: fsmorgue can be a symlink in the morgue directory 
+
+
+--------------------------- Version 1.60 ---------------------------------
+- Changed NTFS c-time to Changed from Created (5/20/02)
+- Fixed a couple little bugs with parsing NTFS output (5/20/02)
+- Improved sorting (name is case insensitive and name is used as 
+  secondary sorting index) (5/20/02)
+- Improved error messages of invalid input to inode & block mode
+- Added ability to import password and group files when making a time line
+  (5/28/02)
+- Fixed bug that did not allow IP addresses to be used for the ACL when
+  DNS was not available (5/30/02)
+- Fixed some issues to make Internet Explorer not complain so much (05/30/02)
+- Improved the logging so that one can retrace their actions (05/31/02)
+- Moved autopsy.log to logs directory (05/31/02)
+- Added ability to write Notes about a given block, inode, or file (06/04/02) 
+  (suggestion by Dave Dittrich)
+- Set default investigators name (an error was generated if no name was given)
+  (06/04/02)
+- Added links in the help page to the window help pages (06/05/02)
+- Updated timeline to reflect new format in new TASK (06/19/02)
+- Added '-C' flag to turn off cookies on command line (06/20/02)
+- Added new main menu (06/20/02)
+- Made MD5 generation 'opt-out' (06/22/02)
+- New code to remove duplicate entries in md5.txt and fsmorgue
+- fsmorgue can have whitespace at end of line (7/6/02)
+- An error is generated if an image in fsmorgue does not exist (7/6/02)
+- updated automatic date search (7/9/02)
+- New feature allows one to save the MD5 values of all files in a directory,
+  which makes the Solaris Finger Print Database easier (7/12)
+
+
+--------------------------- Version 1.50 ---------------------------------
+- Modified to support TASK instead of TCT and TCTUTILs (8/25/01)
+- Removed chmod 'bug' for the cookie file (8/25/01)
+- Fixed number of hits bug in Search mode (off by one) (8/25/01)
+- Added ftype support (8/28/01)
+- Added ftype field to reports (8/28/01)
+- Encoded dir arg in FIL_DEL
+- Filter option holds for usage of next and rev in block mode
+- If using fat, a separate option is given to run find_inode due to how
+  slow it runs
+- removed use of zoneinfo in favor of the new timezone value in fsmorgue.
+- strings now uses '-a' flag to show all strings
+- When doing a search, the length of the string is given as the '-n'
+  flag to strings to speed up the search
+- Allow user to "force" blocks when an inode size is 0 (the istat -b flag) 
+- use the md5 that comes with TCT/TASK
+- multiple images with the same mounting point can now exist
+- Added the morgue directory to the MENU to make it easier to manage 
+  multiple hosts
+- Files are sorted by name by default 
+- can import strings files and create them if needed
+- Run files through 'file' to get data type
+- case insensitive searches
+- MAC headers correspond to file system type (create vs change)
+- Deleted files are displayed in red
+- Correct address name used (fragment, sector etc.)
+- Support for NTFS attributes
+- parse bad tags from HTML when viewing it (send sterile pict)
+- cookie file has port number to aid in scripting
+- cookie files are deleted upon closing
+- log messages are printed for each request
+- added integrity checker
+- renamed aux directory to base to make Windows happy
+- added time line support
+- added fsstat support
+- Added built-in search values in search.pl
+
+
+May 29, 2001	1.01 released
+- Fixed Hex link when in search mode (3/23/01)
+- Corrected heading of ctime (Addam Schroll, Purdue University) (4/24/01)
+- Parses output of new istat correctly (5/1/01)
+- When viewing 'inode as a file', the image and inode are sent as the dir
+  name (5/1/01)
+- Added wait() to collect zombies in Linux (5/22/01)
+- Added auto-flush to prevent repeat log entries (5/22/01)
+- Added a 'save as' option to file and inode browsing (Addam Schroll)
+  (5/22/01)
+- Added option for unrm block numbers (due to blockcalc) (5/22/01)
+- Improved side menu for inode, block, and search (5/22/01)
+- Added "Content-Disposition" so that reports and "save as" have a 
+  unique default filename. (5/23/01)
+- Organization changes to Main Menu (5/24/01)
+- Automated installation process (5/24/01)
+
+March 19, 2001	1.0 released
+- Added man page for autopsy (3/10/01)
+- Directory entries in config files no longer require an / at the end
+- Morgue file names can have a '.' in them (but still not '/') (3/10)
+- autopsy first checks for /dev/urandom for random cookie (3/10/01)
+- morgue directory is a command line option to autopsy (3/10/01)
+- the lib variable in autopsy is no longer set to './' so that it
+  can be run outside of /usr/local/autopsy (3/10/01)
+- changed all references of device to image (3/11/01)
+- changed all reports to print full image path (3/11/01)
+- Investigator is a command line option to autopsy (3/11/01)
+- CGI support removed.  Only autopsy is supported (3/16/01)
+- renamed autopsyd to autopsy (3/16/01)
+- Fixed UID and GID heading (3/16/01)
+- Run image through strings before grep to prevent memory errors (3/16/01)
+- output of find_file and find_inode is prepended with rdir (3/16/01)
+
+
+Feb 27, 2001	0.2b released
+- Added stand alone server, autopsyd (as suggested by Dan Farmer)
+- Reorganized files due to new program
+- Changed names of some executables that changed in TCTUTILs
+
+Feb 19, 2001 	0.1b released
+
+------------------------------------------------------------------------

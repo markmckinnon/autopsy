@@ -1,0 +1,7 @@
+<project name="NativeCoreLibs">
+    
+    <target name="build-native-libs" description="build native library dependencies"> 
+        <mkdir dir="${lib.dir}"/>
+    </target>
+    
+</project>
