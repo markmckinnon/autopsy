@@ -1,0 +1,4 @@
+org.sleuthkit.autopsy.contentviewers.artifactviewers.CallLogArtifactViewer
+org.sleuthkit.autopsy.contentviewers.artifactviewers.ContactArtifactViewer
+org.sleuthkit.autopsy.contentviewers.artifactviewers.GeneralPurposeArtifactViewer
+org.sleuthkit.autopsy.contentviewers.artifactviewers.MessageArtifactViewer

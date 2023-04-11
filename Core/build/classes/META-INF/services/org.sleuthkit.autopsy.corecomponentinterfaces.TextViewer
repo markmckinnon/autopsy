@@ -1,0 +1,4 @@
+org.sleuthkit.autopsy.contentviewers.textcontentviewer.StringsTextViewer
+#position=1
+org.sleuthkit.autopsy.texttranslation.ui.TranslatedTextViewer
+#position=4

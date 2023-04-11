@@ -1,0 +1,2 @@
+org.sleuthkit.autopsy.centralrepository.datamodel.CentralRepositoryService
+org.sleuthkit.autopsy.imagewriter.ImageWriterService

@@ -1,0 +1,3 @@
+org.sleuthkit.autopsy.corecomponents.DataResultViewerTable
+org.sleuthkit.autopsy.corecomponents.DataResultViewerThumbnail
+org.sleuthkit.autopsy.resultviewers.summary.DataSourceSummaryResultViewer

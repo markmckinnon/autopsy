@@ -1,0 +1,3 @@
+org.sleuthkit.autopsy.centralrepository.CentralRepoContextMenuActionsProvider
+org.sleuthkit.autopsy.modules.fileextmismatch.FileExtMismatchContextMenuActionsProvider
+org.sleuthkit.autopsy.modules.hashdatabase.HashDbContextMenuActionsProvider

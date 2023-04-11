@@ -1,0 +1,2 @@
+org.sleuthkit.autopsy.commandlineingest.CommandLineOptionProcessor
+org.sleuthkit.autopsy.core.AutopsyOptionProcessor

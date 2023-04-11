@@ -1,0 +1,4 @@
+org.sleuthkit.autopsy.casemodule.ImageDSProcessor
+org.sleuthkit.autopsy.casemodule.LocalFilesDSProcessor
+org.sleuthkit.autopsy.datasourceprocessors.RawDSProcessor
+org.sleuthkit.autopsy.datasourceprocessors.xry.XRYDataSourceProcessor

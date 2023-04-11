@@ -1,0 +1,17 @@
+org.sleuthkit.autopsy.centralrepository.ingestmodule.CentralRepoIngestModuleFactory
+org.sleuthkit.autopsy.examples.SampleIngestModuleFactory
+org.sleuthkit.autopsy.modules.dataSourceIntegrity.DataSourceIntegrityModuleFactory
+org.sleuthkit.autopsy.modules.drones.DroneIngestModuleFactory
+org.sleuthkit.autopsy.modules.embeddedfileextractor.EmbeddedFileExtractorModuleFactory
+org.sleuthkit.autopsy.modules.encryptiondetection.EncryptionDetectionModuleFactory
+org.sleuthkit.autopsy.modules.fileextmismatch.FileExtMismatchDetectorModuleFactory
+org.sleuthkit.autopsy.modules.filetypeid.FileTypeIdModuleFactory
+org.sleuthkit.autopsy.modules.hashdatabase.HashLookupModuleFactory
+org.sleuthkit.autopsy.modules.interestingitems.InterestingItemsIngestModuleFactory
+org.sleuthkit.autopsy.modules.leappanalyzers.ALeappAnalyzerModuleFactory
+org.sleuthkit.autopsy.modules.leappanalyzers.ILeappAnalyzerModuleFactory
+org.sleuthkit.autopsy.modules.photoreccarver.PhotoRecCarverIngestModuleFactory
+org.sleuthkit.autopsy.modules.pictureanalyzer.PictureAnalyzerIngestModuleFactory
+org.sleuthkit.autopsy.modules.plaso.PlasoModuleFactory
+org.sleuthkit.autopsy.modules.vmextractor.VMExtractorIngestModuleFactory
+org.sleuthkit.autopsy.modules.yara.YaraIngestModuleFactory

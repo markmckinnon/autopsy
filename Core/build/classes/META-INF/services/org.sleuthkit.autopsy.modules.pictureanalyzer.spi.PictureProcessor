@@ -1,0 +1,2 @@
+org.sleuthkit.autopsy.modules.pictureanalyzer.impls.EXIFProcessor
+org.sleuthkit.autopsy.modules.pictureanalyzer.impls.HEICProcessor
