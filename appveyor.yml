@@ -19,7 +19,7 @@ environment:
 install:
   - ps: choco install nuget.commandline
   - ps: choco install ant --ignore-dependencies
-  - ps: $env:Path="$($env:JAVA_HOME)\bin;$($env:Path);C:\ProgramData\chocolatey\lib\ant"
+  - ps: $env:Path="C:\Program Files\Java\jdk1.8.0\bin;$($env:Path);C:\ProgramData\chocolatey\lib\ant"
   - set PATH=C:\Python36-x64\';%PATH%
   - cd C:\
   - git clone https://github.com/sleuthkit/sleuthkit
