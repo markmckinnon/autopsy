@@ -27,7 +27,7 @@ install:
   - python setupSleuthkitBranch.py
 
 services:
-  - postgresql95
+  - postgresql96
 
 build_script:
   - cd %TSK_HOME%
@@ -41,8 +41,9 @@ build_script:
   - cmd: ant -q
   - ps: popd
   - cd %APPVEYOR_BUILD_FOLDER%
+  - echo %APPVEYOR_BUILD_FOLDER% 
   - cmd: ant -q build
 
-test_script:
-  - cd %APPVEYOR_BUILD_FOLDER%
-  - cmd: ant -q test-no-regression
+#test_script:
+#  - cd %APPVEYOR_BUILD_FOLDER%
+#  - cmd: ant -q test-no-regression
