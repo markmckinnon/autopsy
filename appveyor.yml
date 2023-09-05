@@ -27,7 +27,7 @@ install:
   - python setupSleuthkitBranch.py
 
 services:
-  - postgresql95
+  - postgresql969
 
 build_script:
   - cd %TSK_HOME%
