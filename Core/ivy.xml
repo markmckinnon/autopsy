@@ -84,6 +84,10 @@
             <exclude name="jna-platform" />
         </dependency>
 
+        <!-- Python 3 -->
+        <dependency conf="core->default" org="org.graalvm.polyglot" name="polyglot" rev="24.2.0"/>
+        <dependency conf="core->default" org="org.graalvm.polyglot" name="python-community" rev="24.2.0"/>
+
         <dependency conf="core->default" org="org.bouncycastle" name="bcprov-jdk18on" rev="${bouncycastle.version}"/>
         <dependency conf="core->default" org="org.bouncycastle" name="bcpkix-jdk18on" rev="${bouncycastle.version}"/>
 
