@@ -8,7 +8,7 @@
     <import file="nbproject/build-impl.xml"/>
     <import file="${basedir}/TSKVersion.xml"/>
     <!-- IMPORTANT: nbproject/platform.properties has a netbeans-plat-version property that MUST be kept in sync (manually) -->
-    <property name="netbeans-plat-version" value="15" />
+    <property name="netbeans-plat-version" value="24" />
     <property name="nbplatform.active.dir" value="${basedir}/netbeans-plat/${netbeans-plat-version}" />
     <!-- Supported java versions.-->
 
@@ -127,8 +127,8 @@
         <echo file="${zip-tmp}/autopsy/autopsy/.lastModified" message="" />
 
         <!-- step (3) do your copying stuff here, check the ant doc for copy, move, etc file -->
-        <copy file="${nbplatform.active.dir}/platform/modules/ext/junit-4.10.jar"
-              tofile="${zip-tmp}/${app.name}/platform/modules/ext/junit-4.10.jar"/>
+        <copy file="${nbplatform.active.dir}/platform/modules/ext/junit-4.13.2.jar"
+              tofile="${zip-tmp}/${app.name}/platform/modules/ext/junit-4.13.2.jar"/>
         <copy file="${basedir}/README.txt" tofile="${zip-tmp}/${app.name}/README.txt"/>
         <copy file="${basedir}/LICENSE-2.0.txt" tofile="${zip-tmp}/${app.name}/LICENSE-2.0.txt"/>
         <copy file="${basedir}/NEWS.txt" tofile="${zip-tmp}/${app.name}/NEWS.txt"/>
