@@ -64,6 +64,7 @@ public final class RAImageIngestModule implements DataSourceIngestModule {
 
         tskCase = Case.getCurrentCase().getSleuthkitCase();
 
+        Extract usb = new ExtractUsb(context);
         Extract iexplore = new ExtractIE(context);
         Extract edge = new ExtractEdge(context);
         Extract registry = new ExtractRegistry(context);
@@ -98,6 +99,7 @@ public final class RAImageIngestModule implements DataSourceIngestModule {
         extractors.add(zoneInfo); // this needs to run after the web browser modules
         extractors.add(sru);
         extractors.add(prefetch);
+        extractors.add(usb);
         extractors.add(messageDomainType);
 
         browserExtractors.add(chrome);
