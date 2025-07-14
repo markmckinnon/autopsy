@@ -82,6 +82,7 @@ public final class RAImageIngestModule implements DataSourceIngestModule {
         Extract webAccountType = new ExtractWebAccountType(context);
         Extract messageDomainType = new DomainCategoryRunner(context);
         Extract jumpList = new ExtractJumpLists(context);
+        Extract thumbcache = new ExtractThumbcache(context);
 
         extractors.add(recycleBin);
         extractors.add(jumpList);
@@ -100,6 +101,7 @@ public final class RAImageIngestModule implements DataSourceIngestModule {
         extractors.add(webAccountType); // this needs to run after the web browser modules
         extractors.add(zoneInfo); // this needs to run after the web browser modules
         extractors.add(usb);
+        extractors.add(thumbcache);
         extractors.add(messageDomainType);
 
         browserExtractors.add(chrome);
