@@ -70,9 +70,16 @@ public class ILeappAnalyzerIngestModule implements DataSourceIngestModule {
     private static final String ILEAPP_FS = "fs_"; //NON-NLS
     private static final String ILEAPP_EXECUTABLE = "ileapp.exe";//NON-NLS
     private static final String ILEAPP_PATHS_FILE = "iLeapp_paths.txt"; //NON-NLS
-
+    private static final String ACQUISITION_FILE = "acquisition.txt";  //NON-NLS
+    private static final String ITUNES = "iTunes";  //NON-NLS
+    
     private static final String XMLFILE = "ileapp-artifact-attribute-reference.xml"; //NON-NLS
-
+    
+    private boolean iTunesBackup = false;
+    private String acquisitionMethod;
+    private String acquisitionOsType;
+    private String acquisitionDirectory = "";
+    
     private File iLeappExecutable;
 
     private IngestJobContext context;
@@ -138,49 +145,55 @@ public class ILeappAnalyzerIngestModule implements DataSourceIngestModule {
             writeErrorMsgToIngestInbox();
             return ProcessResult.ERROR;
         }
+        Path acquisitionFile = Paths.get(currentCase.getModuleDirectory(), ACQUISITION_FILE); 
+        readAcquisitionFile(acquisitionFile.toString());
 
-        List<String> iLeappPathsToProcess;
-        ProcessBuilder iLeappCommand = buildiLeappListCommand(tempOutputPath);
-        try {
-            int result = ExecUtil.execute(iLeappCommand, new DataSourceIngestModuleProcessTerminator(context, true));
-            if (result != 0) {
-                logger.log(Level.SEVERE, String.format("Error when trying to execute iLeapp program getting file paths to search for result is %d", result));
+        if (!iTunesBackup) {
+            List<String> iLeappPathsToProcess;
+            ProcessBuilder iLeappCommand = buildiLeappListCommand(tempOutputPath);
+            try {
+                int result = ExecUtil.execute(iLeappCommand, new DataSourceIngestModuleProcessTerminator(context, true));
+                if (result != 0) {
+                    logger.log(Level.SEVERE, String.format("Error when trying to execute iLeapp program getting file paths to search for result is %d", result));
+                    writeErrorMsgToIngestInbox();
+                    return ProcessResult.ERROR;
+                }
+                iLeappPathsToProcess = loadIleappPathFile(tempOutputPath);
+                if (iLeappPathsToProcess.isEmpty()) {
+                    logger.log(Level.SEVERE, String.format("Error getting file paths to search, list is empty"));
+                    writeErrorMsgToIngestInbox();
+                    return ProcessResult.ERROR;
+                }
+            } catch (IOException ex) {
+                logger.log(Level.SEVERE, String.format("Error when trying to execute iLeapp program getting file paths to search"), ex);
                 writeErrorMsgToIngestInbox();
                 return ProcessResult.ERROR;
             }
-            iLeappPathsToProcess = loadIleappPathFile(tempOutputPath);
-            if (iLeappPathsToProcess.isEmpty()) {
-                logger.log(Level.SEVERE, String.format("Error getting file paths to search, list is empty"));
-                writeErrorMsgToIngestInbox();
-                return ProcessResult.ERROR;
-            }
-        } catch (IOException ex) {
-            logger.log(Level.SEVERE, String.format("Error when trying to execute iLeapp program getting file paths to search"), ex);
-            writeErrorMsgToIngestInbox();
-            return ProcessResult.ERROR;
-        }
 
-        if ((context.getDataSource() instanceof LocalFilesDataSource)) {
-            /*
-             * The data source may be local files from an iOS file system, or it
-             * may be a tarred/ZIP of an iOS file system. If it is the latter,
-             * extract the files we need to process.
-             */
-            List<AbstractFile> iLeappFilesToProcess = LeappFileProcessor.findLeappFilesToProcess(dataSource);
-            if (!iLeappFilesToProcess.isEmpty()) {
-                statusHelper.switchToDeterminate(iLeappFilesToProcess.size());
-                Integer filesProcessedCount = 0;
-                for (AbstractFile iLeappFile : iLeappFilesToProcess) {
-                    processILeappFile(dataSource, currentCase, statusHelper, filesProcessedCount, iLeappFile);
-                    filesProcessedCount++;
+            if ((context.getDataSource() instanceof LocalFilesDataSource)) {
+                /*
+                 * The data source may be local files from an iOS file system, or it
+                 * may be a tarred/ZIP of an iOS file system. If it is the latter,
+                 * extract the files we need to process.
+                 */
+                List<AbstractFile> iLeappFilesToProcess = LeappFileProcessor.findLeappFilesToProcess(dataSource);
+                if (!iLeappFilesToProcess.isEmpty()) {
+                    statusHelper.switchToDeterminate(iLeappFilesToProcess.size());
+                    Integer filesProcessedCount = 0;
+                    for (AbstractFile iLeappFile : iLeappFilesToProcess) {
+                        processILeappFile(dataSource, currentCase, statusHelper, filesProcessedCount, iLeappFile);
+                        filesProcessedCount++;
+                    }
                 }
             }
+            
+            statusHelper.switchToIndeterminate();
+            statusHelper.progress(Bundle.ILeappAnalyzerIngestModule_processing_iLeapp_results());
+            extractFilesFromDataSource(dataSource, iLeappPathsToProcess, tempOutputPath);
+            processILeappFs(dataSource, currentCase, statusHelper, tempOutputPath.toString(), "fs");
+        } else {
+            processILeappFs(dataSource, currentCase, statusHelper, acquisitionDirectory, "itunes");            
         }
-
-        statusHelper.switchToIndeterminate();
-        statusHelper.progress(Bundle.ILeappAnalyzerIngestModule_processing_iLeapp_results());
-        extractFilesFromDataSource(dataSource, iLeappPathsToProcess, tempOutputPath);
-        processILeappFs(dataSource, currentCase, statusHelper, tempOutputPath.toString());
 
         IngestMessage message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
                 Bundle.ILeappAnalyzerIngestModule_has_run(),
@@ -243,7 +256,7 @@ public class ILeappAnalyzerIngestModule implements DataSourceIngestModule {
      * @param statusHelper       Progress bar for messages to show user
      * @param directoryToProcess
      */
-    private void processILeappFs(Content dataSource, Case currentCase, DataSourceIngestModuleProgress statusHelper, String directoryToProcess) {
+    private void processILeappFs(Content dataSource, Case currentCase, DataSourceIngestModuleProgress statusHelper, String directoryToProcess, String fileSystemType) {
         statusHelper.progress(NbBundle.getMessage(this.getClass(), "ILeappAnalyzerIngestModule.processing.filesystem"));
         String currentTime = new SimpleDateFormat("yyyy-MM-dd HH-mm-ss z", Locale.US).format(System.currentTimeMillis());//NON-NLS
         Path moduleOutputPath = Paths.get(currentCase.getModuleDirectory(), ILEAPP, currentTime);
@@ -254,7 +267,7 @@ public class ILeappAnalyzerIngestModule implements DataSourceIngestModule {
             return;
         }
 
-        ProcessBuilder iLeappCommand = buildiLeappCommand(moduleOutputPath, directoryToProcess, "fs");
+        ProcessBuilder iLeappCommand = buildiLeappCommand(moduleOutputPath, directoryToProcess, fileSystemType);
         try {
             int result = ExecUtil.execute(iLeappCommand, new DataSourceIngestModuleProcessTerminator(context, true));
             if (result != 0) {
@@ -507,5 +520,21 @@ public class ILeappAnalyzerIngestModule implements DataSourceIngestModule {
                 Bundle.ILeappAnalyzerIngestModule_error_running_iLeapp());
         IngestServices.getInstance().postMessage(message);
     }
-
+    
+    /**
+     * 
+     */
+    private void readAcquisitionFile(String filePath) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+            acquisitionOsType = reader.readLine();
+            acquisitionMethod = reader.readLine();
+            acquisitionDirectory = reader.readLine();
+            if (acquisitionMethod.contains(ITUNES)) {
+                iTunesBackup = true;
+            }
+        } catch (IOException ex) {
+                logger.log(Level.WARNING, String.format("Error acquisition file '%s'.",
+                        filePath), ex); //NON-NLS
+        }
+    }
 }
